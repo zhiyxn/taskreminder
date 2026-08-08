@@ -2,6 +2,9 @@
 import { ref, onMounted } from "vue"
 import { useAuthStore } from "@/stores/auth"
 import api from "@/lib/api"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 
 const auth = useAuthStore()
 
@@ -82,56 +85,61 @@ onMounted(async () => {
 <template>
   <div class="mx-auto max-w-2xl space-y-6">
     <!-- 修改密码 -->
-    <div class="rounded-xl border border-border bg-card p-6 shadow-sm">
+    <div class="rounded-lg border border-border bg-card p-6 dark:bg-card">
       <h3 class="text-base font-semibold text-foreground">修改账号密码</h3>
       <form @submit.prevent="saveAccount" class="mt-4 space-y-4">
         <div>
           <label class="mb-1.5 block text-sm font-medium text-foreground">当前用户名</label>
-          <input :value="auth.username" disabled class="w-full rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground" />
+          <Input :model-value="auth.username" disabled />
         </div>
         <div>
           <label for="cur-pw" class="mb-1.5 block text-sm font-medium text-foreground">当前密码（验证身份）*</label>
-          <input id="cur-pw" v-model="currentPassword" type="password" required class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+          <Input id="cur-pw" v-model="currentPassword" type="password" required />
         </div>
         <div>
           <label for="new-username" class="mb-1.5 block text-sm font-medium text-foreground">新用户名（留空不改）</label>
-          <input id="new-username" v-model="newUsername" class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+          <Input id="new-username" v-model="newUsername" />
         </div>
         <div>
           <label for="new-pw" class="mb-1.5 block text-sm font-medium text-foreground">新密码（留空不改）</label>
-          <input id="new-pw" v-model="newPassword" type="password" class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+          <Input id="new-pw" v-model="newPassword" type="password" />
         </div>
-        <button type="submit" :disabled="savingAccount" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50">
+        <Button type="submit" :disabled="savingAccount">
           {{ savingAccount ? "保存中..." : "保存设置" }}
         </button>
       </form>
     </div>
 
     <!-- 时区 -->
-    <div class="rounded-xl border border-border bg-card p-6 shadow-sm">
+    <div class="rounded-lg border border-border bg-card p-6 dark:bg-card">
       <h3 class="text-base font-semibold text-foreground">时区设置</h3>
       <div class="mt-4 flex items-end gap-3">
         <div class="flex-1">
           <label for="tz" class="mb-1.5 block text-sm font-medium text-foreground">选择时区</label>
-          <select id="tz" v-model="selectedTimezone" class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
-            <option v-for="tz in timezones" :key="tz.value" :value="tz.value">{{ tz.label }}</option>
-          </select>
+          <Select v-model="selectedTimezone">
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="tz in timezones" :key="tz.value" :value="tz.value">{{ tz.label }}</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        <button :disabled="savingTimezone" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50" @click="saveTimezone">
+        <Button :disabled="savingTimezone" @click="saveTimezone">
           {{ savingTimezone ? "保存中..." : "保存时区" }}
         </button>
       </div>
     </div>
 
     <!-- 关于 -->
-    <div class="rounded-xl border border-border bg-card p-6 shadow-sm">
+    <div class="rounded-lg border border-border bg-card p-6 dark:bg-card">
       <h3 class="text-base font-semibold text-foreground">关于本系统</h3>
       <div class="mt-4 space-y-2 text-sm text-muted-foreground">
         <p>事项提醒系统 v1.0.0</p>
         <p>支持 Telegram、Email、飞书、Bark 多渠道通知。</p>
         <p>每分钟自动检查提醒，到期自动发送通知。</p>
         <p class="pt-2">
-          <a href="https://github.com/wkjscn/TaskReminder" target="_blank" class="text-indigo-600 hover:text-indigo-500 dark:text-indigo-400">GitHub 仓库</a>
+          <a href="https://github.com/zhiyxn/TaskReminder" target="_blank" class="text-primary hover:text-primary/90">GitHub 仓库</a>
         </p>
       </div>
     </div>

@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* 关键：让 dark: 工具类响应 <html class="dark"> 而非 @media */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: hsl(0 0% 100%);
   --foreground: hsl(222.2 84% 4.9%);
@@ -7,8 +10,8 @@
   --card-foreground: hsl(222.2 84% 4.9%);
   --popover: hsl(0 0% 100%);
   --popover-foreground: hsl(222.2 84% 4.9%);
-  --primary: hsl(235 65% 59%);
-  --primary-foreground: hsl(210 40% 98%);
+  --primary: hsl(142 71% 45%);
+  --primary-foreground: hsl(0 0% 100%);
   --secondary: hsl(210 40% 96.1%);
   --secondary-foreground: hsl(222.2 47.4% 11.2%);
   --muted: hsl(210 40% 96.1%);
@@ -17,14 +20,17 @@
   --accent-foreground: hsl(222.2 47.4% 11.2%);
   --destructive: hsl(0 84.2% 60.2%);
   --destructive-foreground: hsl(210 40% 98%);
-  --border: hsl(214.3 31.8% 91.4%);
+  --border: hsl(0 0% 89%);
   --input: hsl(214.3 31.8% 91.4%);
-  --ring: hsl(235 65% 59%);
+  --ring: hsl(142 71% 45%);
   --radius: 0.5rem;
-  --sidebar-background: hsl(222 30% 12%);
-  --sidebar-foreground: hsl(210 20% 88%);
-  --sidebar-primary: hsl(235 65% 59%);
+  --sidebar-background: hsl(220 5% 95%);
+  --sidebar-foreground: hsl(220 5% 20%);
+  --sidebar-primary: hsl(142 71% 45%);
   --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(220 5% 85%);
+  --sidebar-border: hsl(220 5% 80%);
+  --sidebar-muted: hsl(220 5% 50%);
 }
 
 .dark {
@@ -34,8 +40,8 @@
   --card-foreground: hsl(210 40% 98%);
   --popover: hsl(222.2 84% 4.9%);
   --popover-foreground: hsl(210 40% 98%);
-  --primary: hsl(235 65% 59%);
-  --primary-foreground: hsl(210 40% 98%);
+  --primary: hsl(142 71% 45%);
+  --primary-foreground: hsl(0 0% 100%);
   --secondary: hsl(217.2 32.6% 17.5%);
   --secondary-foreground: hsl(210 40% 98%);
   --muted: hsl(217.2 32.6% 17.5%);
@@ -46,11 +52,14 @@
   --destructive-foreground: hsl(210 40% 98%);
   --border: hsl(217.2 32.6% 17.5%);
   --input: hsl(217.2 32.6% 17.5%);
-  --ring: hsl(235 65% 59%);
+  --ring: hsl(142 71% 45%);
   --sidebar-background: hsl(222 30% 12%);
   --sidebar-foreground: hsl(210 20% 88%);
-  --sidebar-primary: hsl(235 65% 59%);
+  --sidebar-primary: hsl(142 71% 45%);
   --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(217 25% 18%);
+  --sidebar-border: hsl(217 25% 18%);
+  --sidebar-muted: hsl(215 20% 40%);
 }
 
 @theme inline {
@@ -73,6 +82,13 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar-background);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-muted: var(--sidebar-muted);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -82,6 +98,9 @@
 @layer base {
   * {
     @apply border-border;
+  }
+  button:not(:disabled) {
+    cursor: pointer;
   }
   body {
     @apply bg-background text-foreground;

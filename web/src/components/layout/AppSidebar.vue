@@ -27,21 +27,21 @@ function isActive(path: string) {
 </script>
 
 <template>
-  <aside class="flex flex-col bg-slate-900 text-slate-200 md:static">
+  <aside class="flex flex-col bg-sidebar text-sidebar-foreground md:static">
     <!-- Logo -->
-    <div class="flex items-center gap-3 border-b border-slate-800 px-5 py-5">
-      <div class="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg">
-        <Bell class="size-5 text-white" />
+    <div class="flex h-[70px] items-center gap-3 border-b border-sidebar-border px-5">
+      <div class="flex size-10 items-center justify-center rounded-xl bg-primary shadow-lg">
+        <Bell class="size-5 text-primary-foreground" />
       </div>
       <div>
-        <div class="text-sm font-bold text-white">事项提醒系统</div>
-        <div class="text-xs text-slate-400">Reminder System</div>
+        <div class="text-sm font-bold text-sidebar-foreground">事项提醒系统</div>
+        <div class="text-xs text-sidebar-muted">Reminder System</div>
       </div>
     </div>
 
     <!-- 导航 -->
     <nav class="flex-1 space-y-1 px-3 py-4">
-      <div class="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+      <div class="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-muted">
         主菜单
       </div>
       <a
@@ -51,8 +51,8 @@ function isActive(path: string) {
         :class="[
           'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
           isActive(item.path)
-            ? 'bg-indigo-500/20 text-indigo-300'
-            : 'text-slate-300 hover:bg-slate-800 hover:text-white',
+            ? 'bg-primary/15 text-primary'
+            : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground',
         ]"
         @click="$emit('navigate')"
       >
@@ -60,11 +60,11 @@ function isActive(path: string) {
         {{ item.label }}
       </a>
 
-      <div class="mb-2 px-3 pt-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
+      <div class="mb-2 px-3 pt-4 text-xs font-semibold uppercase tracking-wider text-sidebar-muted">
         系统
       </div>
       <button
-        class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
+        class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
         @click="auth.logout()"
       >
         <LogOut class="size-4" />
@@ -73,14 +73,14 @@ function isActive(path: string) {
     </nav>
 
     <!-- 底部 -->
-    <div class="border-t border-slate-800 px-5 py-4">
+    <div class="border-t border-sidebar-border px-5 py-4">
       <div class="flex items-center gap-2">
-        <div class="flex size-8 items-center justify-center rounded-full bg-slate-700 text-xs font-bold text-slate-300">
+        <div class="flex size-8 items-center justify-center rounded-full bg-sidebar-accent text-xs font-bold text-sidebar-foreground">
           {{ auth.username.charAt(0).toUpperCase() }}
         </div>
         <div>
-          <div class="text-sm font-medium text-white">{{ auth.username }}</div>
-          <div class="text-xs text-slate-500">v1.0.0</div>
+          <div class="text-sm font-medium text-sidebar-foreground">{{ auth.username }}</div>
+          <div class="text-xs text-sidebar-muted">v1.0.0</div>
         </div>
       </div>
     </div>

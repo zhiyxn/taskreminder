@@ -44,7 +44,7 @@
    - **容器名称**：`Task-reminder`
    - **镜像**：
      ```
-     ghcr.io/wkjscn/taskreminder:latest
+     ghcr.io/zhiyxn/taskreminder:latest
      ```
    - **端口映射**：本地端口：3000 → 宿主机端口：3000
 
@@ -80,7 +80,7 @@
 
    services:
      bh-reminder:
-       image: ghcr.io/wkjscn/taskreminder:latest
+       image: ghcr.io/zhiyxn/taskreminder:latest
        container_name: bh-reminder
        restart: always
        ports:
@@ -112,7 +112,7 @@
 如果不使用 docker-compose，也可以直接用 docker 命令：
 
 ```bash
-docker pull ghcr.io/wkjscn/taskreminder:latest
+docker pull ghcr.io/zhiyxn/taskreminder:latest
 docker run -d \
   --name bh-reminder \
   --restart always \
@@ -120,7 +120,7 @@ docker run -d \
   -v $(pwd)/data:/app/data \
   -v $(pwd)/.env:/app/.env:ro \
   -e TZ=Asia/Shanghai \
-  ghcr.io/wkjscn/taskreminder:latest
+  ghcr.io/zhiyxn/taskreminder:latest
 ```
 
 ### 方式三：源码部署
@@ -128,7 +128,7 @@ docker run -d \
 1. **克隆仓库**
 
    ```bash
-   git clone https://github.com/wkjscn/TaskReminder.git
+   git clone https://github.com/zhiyxn/TaskReminder.git
    cd TaskReminder
    ```
 
@@ -352,7 +352,7 @@ docker compose up -d
 如遇缓存问题，可先清理旧镜像：
 
 ```bash
-docker image rm ghcr.io/wkjscn/taskreminder:latest
+docker image rm ghcr.io/zhiyxn/taskreminder:latest
 docker compose pull
 docker compose up -d
 ```

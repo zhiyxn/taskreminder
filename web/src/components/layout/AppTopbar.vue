@@ -33,7 +33,7 @@ function cycleTheme() {
 </script>
 
 <template>
-  <header class="sticky top-0 z-30 flex items-center gap-4 border-b border-border bg-background/80 px-4 py-3 backdrop-blur md:px-6">
+  <header class="sticky top-0 z-30 flex h-[70px] items-center gap-4 border-b border-border bg-background/80 px-4 backdrop-blur md:px-6">
     <button class="inline-flex items-center justify-center rounded-md p-2 hover:bg-muted md:hidden" @click="$emit('toggle')">
       <Menu class="size-5" />
     </button>

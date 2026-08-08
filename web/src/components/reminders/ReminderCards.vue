@@ -4,6 +4,7 @@ import { useAuthStore } from "@/stores/auth"
 import { usePagination } from "@/composables/usePagination"
 import { formatStartDateTime, getNextReminderDate, getUnitLabel } from "@/lib/timezone"
 import { computed } from "vue"
+import { Inbox } from "lucide-vue-next"
 import StatusBadge from "@/components/shared/StatusBadge.vue"
 import ChannelTags from "@/components/shared/ChannelTags.vue"
 import EmptyState from "@/components/shared/EmptyState.vue"
@@ -33,17 +34,17 @@ function nextDate(r: any) {
 
 <template>
   <div class="flex flex-col gap-4">
-    <EmptyState v-if="totalItems === 0" icon="📭" message="暂无事项提醒" />
+    <EmptyState v-if="totalItems === 0" :icon="Inbox" message="暂无事项提醒" />
     <div
       v-for="r in pagedData"
       :key="r.id"
-      class="rounded-xl border border-border bg-card p-4 shadow-sm"
+      class="rounded-xl border border-border bg-card p-4 shadow-sm dark:bg-card"
     >
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0 flex-1">
           <div class="font-semibold text-foreground truncate">{{ r.title }}</div>
           <div v-if="r.description" class="mt-1 text-xs text-muted-foreground line-clamp-2">{{ r.description }}</div>
-          <div class="mt-1 text-xs text-slate-400">ID: #{{ r.id }}</div>
+          <div class="mt-1 text-xs text-muted-foreground">ID: #{{ r.id }}</div>
         </div>
         <StatusBadge :active="!!r.enabled" />
       </div>

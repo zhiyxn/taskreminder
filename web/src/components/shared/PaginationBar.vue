@@ -5,7 +5,7 @@ const emit = defineEmits<{ "update:currentPage": [page: number] }>()
 
 <template>
   <div v-if="totalItems > 10" class="flex items-center justify-between gap-4 py-3">
-    <span class="text-sm text-slate-500 dark:text-slate-400">
+    <span class="text-sm text-muted-foreground dark:text-muted-foreground">
       共 {{ totalItems }} 条，第 {{ currentPage }} / {{ totalPages }} 页
     </span>
     <div class="flex items-center gap-1">
@@ -19,7 +19,7 @@ const emit = defineEmits<{ "update:currentPage": [page: number] }>()
         :key="p"
         :class="[
           'inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-sm',
-          p === currentPage ? 'border border-indigo-500 bg-indigo-50 text-indigo-600 dark:bg-indigo-950' : 'border border-transparent hover:bg-muted',
+          p === currentPage ? 'border border-primary bg-primary/5 text-primary dark:bg-primary/10' : 'border border-transparent hover:bg-muted dark:hover:bg-muted',
         ]"
         @click="emit('update:currentPage', p)"
       >{{ p }}</span>

@@ -4,6 +4,7 @@ import { useAuthStore } from "@/stores/auth"
 import { usePagination } from "@/composables/usePagination"
 import { formatStartDateTime, getNextReminderDate, getUnitLabel } from "@/lib/timezone"
 import { computed } from "vue"
+import { Inbox } from "lucide-vue-next"
 import StatusBadge from "@/components/shared/StatusBadge.vue"
 import ChannelTags from "@/components/shared/ChannelTags.vue"
 import EmptyState from "@/components/shared/EmptyState.vue"
@@ -52,7 +53,7 @@ function nextDate(r: any) {
           <td class="px-4 py-3">
             <div class="font-medium text-foreground">{{ r.title }}</div>
             <div v-if="r.description" class="mt-0.5 text-xs text-muted-foreground line-clamp-2">{{ r.description }}</div>
-            <div class="mt-0.5 text-xs text-slate-400">ID: #{{ r.id }}</div>
+            <div class="mt-0.5 text-xs text-muted-foreground">ID: #{{ r.id }}</div>
           </td>
           <td v-if="auth.isAdmin" class="px-4 py-3 text-sm text-muted-foreground">
             {{ r.username || "未知" }}
@@ -76,7 +77,7 @@ function nextDate(r: any) {
         </tr>
       </tbody>
     </table>
-    <EmptyState v-else icon="📭" message="暂无事项提醒，点击右上角「新建提醒」开始吧！" />
+    <EmptyState v-else :icon="Inbox" message="暂无事项提醒，点击右上角「新建提醒」开始吧！" />
   </div>
   <PaginationBar :total-items="totalItems" :current-page="currentPage" :total-pages="totalPages" @update:current-page="goTo" />
 </template>

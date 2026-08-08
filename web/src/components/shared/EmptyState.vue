@@ -1,10 +1,13 @@
 <script setup lang="ts">
-defineProps<{ icon?: string; message?: string }>()
+import { Inbox } from "lucide-vue-next"
+import type { Component } from "vue"
+
+defineProps<{ icon?: Component; message?: string }>()
 </script>
 
 <template>
   <div class="flex flex-col items-center justify-center px-5 py-16 text-center">
-    <div class="text-5xl">{{ icon || "📭" }}</div>
-    <p class="mt-4 text-sm text-slate-400 dark:text-slate-500">{{ message || "暂无数据" }}</p>
+    <component :is="icon || Inbox" class="size-12 text-muted-foreground" />
+    <p class="mt-4 text-sm text-muted-foreground">{{ message || "暂无数据" }}</p>
   </div>
 </template>

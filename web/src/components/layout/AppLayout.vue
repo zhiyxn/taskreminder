@@ -15,7 +15,7 @@ function closeSidebar() {
 </script>
 
 <template>
-  <div class="flex h-screen bg-slate-50 dark:bg-slate-950">
+  <div class="flex h-screen bg-white dark:bg-slate-950">
     <!-- 移动端遮罩 -->
     <div
       class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"

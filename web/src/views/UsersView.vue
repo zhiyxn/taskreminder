@@ -5,6 +5,10 @@ import { useIsMobile } from "@/composables/useMediaQuery"
 import { usePagination } from "@/composables/usePagination"
 import PaginationBar from "@/components/shared/PaginationBar.vue"
 import EmptyState from "@/components/shared/EmptyState.vue"
+import { Users, Search } from "lucide-vue-next"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import type { UserItem } from "@/types"
 
 const store = useUsersStore()
@@ -74,11 +78,14 @@ onMounted(() => store.fetchAll())
 <template>
   <div class="space-y-4">
     <div class="flex flex-wrap items-center gap-3">
-      <h2 class="text-lg font-semibold text-foreground">👥 用户管理</h2>
-      <input
+      <h2 class="flex items-center gap-2 text-lg font-semibold text-foreground">
+        <Users class="size-5" />
+        用户管理
+      </h2>
+      <Input
         v-model="store.searchKeyword"
         placeholder="搜索用户名..."
-        class="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+        class="flex-1"
       />
     </div>
 
@@ -120,13 +127,13 @@ onMounted(() => store.fetchAll())
           </tr>
         </tbody>
       </table>
-      <EmptyState v-else icon="🔍" message="未找到匹配的用户" />
+      <EmptyState v-else :icon="Search" message="未找到匹配的用户" />
     </div>
 
     <!-- 移动端卡片 -->
     <div v-else class="flex flex-col gap-4">
-      <EmptyState v-if="totalItems === 0" icon="🔍" message="未找到匹配的用户" />
-      <div v-for="u in pagedData" :key="u.id" class="rounded-xl border border-border bg-card p-4 shadow-sm">
+      <EmptyState v-if="totalItems === 0" :icon="Search" message="未找到匹配的用户" />
+      <div v-for="u in pagedData" :key="u.id" class="rounded-lg border border-border bg-card p-4 dark:bg-card">
         <div class="font-semibold text-foreground">{{ u.username }}</div>
         <div class="mt-2 grid grid-cols-2 gap-2 text-sm">
           <div><span class="text-muted-foreground">角色</span> <span class="ml-1">{{ u.role === 'admin' ? '管理员' : '用户' }}</span></div>
@@ -147,34 +154,44 @@ onMounted(() => store.fetchAll())
     <!-- 编辑模态 -->
     <div v-if="editOpen" class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10">
       <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" @click="editOpen = false" />
-      <div class="relative z-10 w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
+      <div class="relative z-10 w-full max-w-md rounded-lg border border-border bg-background/80 backdrop-blur-xl backdrop-saturate-150 p-6 shadow-2xl dark:bg-card/80">
         <h2 class="mb-4 text-lg font-semibold text-foreground">编辑用户</h2>
         <form @submit.prevent="saveEdit" class="space-y-4">
           <div>
             <label class="mb-1.5 block text-sm font-medium text-foreground">用户名</label>
-            <input v-model="editUsername" required class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+            <Input v-model="editUsername" required />
           </div>
           <div>
             <label class="mb-1.5 block text-sm font-medium text-foreground">密码（留空不改）</label>
-            <input v-model="editPassword" type="password" class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+            <Input v-model="editPassword" type="password" />
           </div>
           <div>
             <label class="mb-1.5 block text-sm font-medium text-foreground">角色</label>
-            <select v-model="editRole" class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
-              <option value="user">用户</option>
-              <option value="admin">管理员</option>
-            </select>
+            <Select v-model="editRole">
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="user">用户</SelectItem>
+                <SelectItem value="admin">管理员</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <label class="mb-1.5 block text-sm font-medium text-foreground">状态</label>
-            <select v-model="editStatus" class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
-              <option value="active">正常</option>
-              <option value="disabled">停用</option>
-            </select>
+            <Select v-model="editStatus">
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">正常</SelectItem>
+                <SelectItem value="disabled">停用</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div class="flex justify-end gap-3 pt-2">
-            <button type="button" class="rounded-lg border border-border bg-background px-4 py-2 text-sm hover:bg-muted" @click="editOpen = false">取消</button>
-            <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500">保存</button>
+            <Button type="button" variant="outline" @click="editOpen = false">取消</Button>
+            <Button type="submit">保存</Button>
           </div>
         </form>
       </div>
@@ -183,12 +200,12 @@ onMounted(() => store.fetchAll())
     <!-- 删除确认 -->
     <div v-if="deleteOpen" class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10">
       <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" @click="deleteOpen = false" />
-      <div class="relative z-10 w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-2xl">
+      <div class="relative z-10 w-full max-w-sm rounded-lg border border-border bg-background/80 backdrop-blur-xl backdrop-saturate-150 p-6 shadow-2xl dark:bg-card/80">
         <h2 class="text-lg font-semibold text-foreground">确认删除</h2>
         <p class="mt-2 text-sm text-muted-foreground">确定要删除用户「{{ deleteTarget?.username }}」吗？该用户的所有提醒和日志将被一并删除，此操作不可撤销。</p>
         <div class="mt-5 flex justify-end gap-3">
-          <button class="rounded-lg border border-border bg-background px-4 py-2 text-sm hover:bg-muted" @click="deleteOpen = false">取消</button>
-          <button class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500" @click="confirmDelete">确认删除</button>
+          <Button variant="outline" @click="deleteOpen = false">取消</Button>
+          <Button variant="destructive" @click="confirmDelete">确认删除</Button>
         </div>
       </div>
     </div>
