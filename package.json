@@ -10,7 +10,9 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "tsx watch src/index.ts"
+    "dev": "tsx watch src/index.ts",
+    "dev:web": "pnpm --filter web run dev",
+    "dev:all": "pnpm run dev & pnpm --filter web run dev"
   },
   "dependencies": {
     "@types/nodemailer": "^8.0.1",
