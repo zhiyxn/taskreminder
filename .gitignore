@@ -4,3 +4,5 @@ data/
 .env
 *.rar
 *.zip
+# Added by code-review-graph
+.code-review-graph/
