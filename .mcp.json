@@ -6,7 +6,6 @@
         "code-review-graph",
         "serve"
       ],
-      "cwd": "/Users/fanlikai/Documents/project/git-projects/taskreminder",
       "type": "stdio"
     }
   }
