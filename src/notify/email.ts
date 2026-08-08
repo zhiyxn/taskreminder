@@ -1,4 +1,6 @@
 import nodemailer from 'nodemailer';
+import net from 'net';
+import { resolveSafeHost } from '../security/ssrf';
 
 const DEFAULT_HOST = process.env.SMTP_HOST || '';
 const DEFAULT_PORT = parseInt(process.env.SMTP_PORT || '465', 10);
@@ -29,11 +31,29 @@ export async function sendEmailMessage(
   }
 
   try {
+    // SMTP 地址同样由用户提供，不校验就是一条内网端口探测通道。
+    // nodemailer 自带的 allowInternalNetworkInterfaces 只按本机网卡族过滤，
+    // 且 host 为字面量 IP 时会完全跳过解析，挡不住这里的场景，所以自己来。
+    //
+    // 先解析并校验全部地址，再把连接钉在已确认安全的那个 IP 上，
+    // 避免解析与建连之间被重新绑定到内网。
+    let address: string;
+    try {
+      ({ address } = await resolveSafeHost(host));
+    } catch (err: any) {
+      return { success: false, error: err.message || 'SMTP 服务器地址不可用' };
+    }
+
     const transporter = nodemailer.createTransport({
-      host,
+      host: address,
       port,
       secure: port === 465,
-      auth: { user, pass }
+      auth: { user, pass },
+      // 连接目标是 IP，证书校验仍要按原始域名进行
+      tls: net.isIP(host) ? undefined : { servername: host },
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 20_000
     });
 
     const subject = '📋 事项提醒';

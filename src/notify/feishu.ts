@@ -1,16 +1,46 @@
 import fetch from 'node-fetch';
+import crypto from 'crypto';
 
 const DEFAULT_APP_ID = process.env.FEISHU_APP_ID || '';
 const DEFAULT_APP_SECRET = process.env.FEISHU_APP_SECRET || '';
 const DEFAULT_RECEIVE_ID = process.env.FEISHU_RECEIVE_ID || '';
 
-// 缓存 tenant_access_token 及过期时间
-let cachedToken: { token: string; expireAt: number } | null = null;
+/**
+ * tenant_access_token 缓存，按应用凭据分桶。
+ *
+ * 这里必须按 appId 隔离：本服务是多用户的，每个提醒可以配自己的飞书应用。
+ * 若共用一个全局缓存，先发消息的用户的 token 会被后来者复用，
+ * 导致消息以别人的企业身份发出（跨租户凭据越权）。
+ * 键里带上 secret 指纹，用户轮换密钥后会自然落到新桶，不会命中旧 token。
+ */
+const tokenCache = new Map<string, { token: string; expireAt: number }>();
+const MAX_CACHE_ENTRIES = 500;
+
+function cacheKey(appId: string, appSecret: string): string {
+  const fingerprint = crypto.createHash('sha256').update(appSecret).digest('hex').slice(0, 16);
+  return `${appId}:${fingerprint}`;
+}
+
+function pruneCache(): void {
+  const now = Date.now();
+  for (const [key, entry] of tokenCache) {
+    if (now >= entry.expireAt) tokenCache.delete(key);
+  }
+  // 清理后仍然超量，淘汰最早插入的条目（Map 保持插入顺序）
+  while (tokenCache.size >= MAX_CACHE_ENTRIES) {
+    const oldest = tokenCache.keys().next();
+    if (oldest.done) break;
+    tokenCache.delete(oldest.value);
+  }
+}
 
 async function getTenantAccessToken(appId: string, appSecret: string): Promise<string> {
+  const key = cacheKey(appId, appSecret);
+
   // 复用未过期的缓存 token
-  if (cachedToken && Date.now() < cachedToken.expireAt) {
-    return cachedToken.token;
+  const cached = tokenCache.get(key);
+  if (cached && Date.now() < cached.expireAt) {
+    return cached.token;
   }
 
   const response = await fetch('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal', {
@@ -24,12 +54,13 @@ async function getTenantAccessToken(appId: string, appSecret: string): Promise<s
     throw new Error(data.msg || '获取飞书 access_token 失败');
   }
 
+  pruneCache();
   // 提前 5 分钟过期，避免边界问题
-  cachedToken = {
+  tokenCache.set(key, {
     token: data.tenant_access_token,
     expireAt: Date.now() + (data.expire || 7200) * 1000 - 5 * 60 * 1000
-  };
-  return cachedToken.token;
+  });
+  return data.tenant_access_token;
 }
 
 export async function sendFeishuMessage(
@@ -64,9 +95,9 @@ export async function sendFeishuMessage(
     if (data.code === 0) {
       return { success: true };
     }
-    // token 失效则清除缓存重试一次
+    // token 失效则清除对应缓存，下次重新获取
     if (data.code === 99991663 || data.code === 99991661) {
-      cachedToken = null;
+      tokenCache.delete(cacheKey(appId, appSecret));
     }
     return { success: false, error: data.msg || '飞书 API 错误' };
   } catch (err: any) {

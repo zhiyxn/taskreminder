@@ -132,7 +132,7 @@ function formatPlainMessage(reminder: Reminder): string {
 }
 
 export function checkAndFireReminders(): void {
-  const reminders = reminderRepository.getActive();
+  const reminders = reminderRepository.getActiveWithSecrets();
 
   for (const reminder of reminders) {
     if (!shouldTriggerReminder(reminder)) continue;

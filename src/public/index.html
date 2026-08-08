@@ -2516,11 +2516,15 @@
         editingId = null;
         document.getElementById('edit_id').value = '';
         fillForm(item);
+        // 服务端不再下发凭据明文，克隆得不到原凭据，清空后由用户重新填写
+        ['telegram_bot_token', 'email_pass', 'feishu_app_secret', 'bark_url']
+          .forEach(id => { document.getElementById(id).value = ''; });
         // 标题添加"（副本）"标记
         document.getElementById('title').value = item.title + '（副本）';
         document.getElementById('modalTitle').textContent = '克隆事项提醒';
         document.getElementById('submitBtn').textContent = '创建提醒';
         document.getElementById('formModal').classList.add('active');
+        alert('已复制配置，但出于安全考虑不会复制通知凭据，请重新填写后再保存。');
       } catch(e) { console.error(e); }
     }
 

@@ -2,15 +2,37 @@ import { Router, Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { userRepository, sessionRepository, captchaRepository } from './db';
+import {
+  loginIpLimiter,
+  loginAccountLimiter,
+  registerLimiter,
+  captchaLimiter,
+  clientIp,
+  rateLimit,
+  tooManyRequests
+} from './security/rateLimit';
 
 // 初始化默认用户
 const DEFAULT_USERNAME = process.env.LOGIN_USERNAME || 'admin';
-const DEFAULT_PASSWORD = process.env.LOGIN_PASSWORD || 'admin123';
 
 if (userRepository.count() === 0) {
-  const hashed = bcrypt.hashSync(DEFAULT_PASSWORD, 10);
-  userRepository.create(DEFAULT_USERNAME, hashed, 'admin');
-  console.log(`✅ 默认管理员已创建: ${DEFAULT_USERNAME} / ${DEFAULT_PASSWORD}`);
+  // 未配置 LOGIN_PASSWORD 时随机生成，不再使用众所周知的固定弱口令。
+  // 随机口令只在创建这一刻打印一次，供首次登录使用。
+  const configuredPassword = process.env.LOGIN_PASSWORD;
+  const password = configuredPassword || crypto.randomBytes(12).toString('base64url');
+
+  userRepository.create(DEFAULT_USERNAME, bcrypt.hashSync(password, 10), 'admin');
+
+  if (configuredPassword) {
+    // 口令来自环境变量，运维已知晓，绝不写进日志
+    console.log(`✅ 默认管理员已创建: ${DEFAULT_USERNAME}（密码取自 LOGIN_PASSWORD）`);
+  } else {
+    console.log(
+      `✅ 默认管理员已创建: ${DEFAULT_USERNAME}\n` +
+      `   初始密码: ${password}\n` +
+      `   ⚠️  此密码仅显示这一次，请立即登录并在设置页修改，随后清理容器日志。`
+    );
+  }
 } else {
   // 确保默认 admin 用户具有管理员角色
   const adminUser = userRepository.getByName(DEFAULT_USERNAME);
@@ -53,6 +75,8 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     res.status(401).json({ success: false, error: '账号已停用' });
     return;
   }
+  // 滑动续期：持续使用的会话自动延长，闲置的会话到期失效
+  sessionRepository.touch(token);
   (req as any).user = user;
   next();
 }
@@ -66,7 +90,7 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
   next();
 }
 
-const authRouter = Router();
+const authRouter: Router = Router();
 
 authRouter.post('/login', (req, res) => {
   const { username, password } = req.body;
@@ -74,8 +98,28 @@ authRouter.post('/login', (req, res) => {
     res.status(400).json({ success: false, error: '请输入用户名和密码' });
     return;
   }
+
+  const ipKey = clientIp(req);
+  // 账号维度的键统一转小写，避免靠大小写变化重置计数
+  const accountKey = String(username).toLowerCase();
+
+  // 先查限流再校验口令：bcrypt 是 CPU 密集操作，放行到这一步之前挡住
+  // 才能同时防住暴力破解和拿登录接口打单线程的资源耗尽
+  const ipVerdict = loginIpLimiter.check(ipKey);
+  if (!ipVerdict.allowed) {
+    tooManyRequests(res, ipVerdict.retryAfter, '登录尝试过于频繁，请稍后再试');
+    return;
+  }
+  const accountVerdict = loginAccountLimiter.check(accountKey);
+  if (!accountVerdict.allowed) {
+    tooManyRequests(res, accountVerdict.retryAfter, '该账号登录失败次数过多，请稍后再试');
+    return;
+  }
+
   const user = userRepository.getByName(String(username));
   if (!user || !bcrypt.compareSync(String(password), user.password)) {
+    loginIpLimiter.hit(ipKey);
+    loginAccountLimiter.hit(accountKey);
     res.status(401).json({ success: false, error: '用户名或密码错误' });
     return;
   }
@@ -85,6 +129,9 @@ authRouter.post('/login', (req, res) => {
   }
   const token = crypto.randomBytes(32).toString('hex');
   sessionRepository.create(user.id, token);
+  // 认证成功，清空失败计数
+  loginIpLimiter.reset(ipKey);
+  loginAccountLimiter.reset(accountKey);
   res.json({ success: true, data: { token, username: user.username, role: user.role } });
 });
 
@@ -133,7 +180,7 @@ function generateCaptchaSvg(code: string): string {
   return svg;
 }
 
-authRouter.get('/captcha', (_req, res) => {
+authRouter.get('/captcha', rateLimit(captchaLimiter, '验证码请求过于频繁，请稍后再试'), (_req, res) => {
   const code = generateCaptchaCode();
   const id = crypto.randomBytes(16).toString('hex');
   captchaRepository.create(id, code);
@@ -142,7 +189,7 @@ authRouter.get('/captcha', (_req, res) => {
 });
 
 // 注册
-authRouter.post('/register', (req, res) => {
+authRouter.post('/register', rateLimit(registerLimiter, '注册请求过于频繁，请稍后再试'), (req, res) => {
   const { email, password, captcha_id, captcha_code } = req.body;
 
   if (!email || !password) {

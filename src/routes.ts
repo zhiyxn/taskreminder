@@ -3,8 +3,22 @@ import bcrypt from 'bcryptjs';
 import { reminderRepository, logRepository, userRepository, settingsRepository } from './db';
 import { fireReminderNow } from './scheduler';
 import { requireAdmin } from './auth';
+import { validateOutboundUrl } from './security/ssrf';
 
-const router = Router();
+const router: Router = Router();
+
+/**
+ * 保存前先校验 Bark 地址，让用户立刻拿到反馈。
+ * 真正的拦截在发送时由 safeAgent 完成（域名可能在保存后才指向内网）。
+ */
+function barkUrlError(value: unknown): string | null {
+  if (value === undefined || value === null || value === '') return null;
+  const raw = String(value).trim();
+  // 非 http 开头的是 device key，会被拼到 api.day.app，无需校验
+  if (!raw.startsWith('http')) return null;
+  const checked = validateOutboundUrl(raw);
+  return checked.ok ? null : `Bark URL ${checked.error}`;
+}
 
 router.get('/reminders', (req, res) => {
   const user = (req as any).user;
@@ -18,6 +32,12 @@ router.post('/reminders', (req, res) => {
 
   if (!title || !start_date || !interval_days) {
     res.status(400).json({ success: false, error: '标题、开始时间和间隔天数为必填项' });
+    return;
+  }
+
+  const barkError = barkUrlError(bark_url);
+  if (barkError) {
+    res.status(400).json({ success: false, error: barkError });
     return;
   }
 
@@ -56,6 +76,12 @@ router.put('/reminders/:id', (req, res) => {
 
   if (user.role !== 'admin' && existing.user_id !== user.id) {
     res.status(403).json({ success: false, error: '无权限操作此提醒' });
+    return;
+  }
+
+  const barkError = barkUrlError(req.body?.bark_url);
+  if (barkError) {
+    res.status(400).json({ success: false, error: barkError });
     return;
   }
 
@@ -120,7 +146,8 @@ router.post('/reminders/:id/toggle', (req, res) => {
 router.post('/reminders/:id/fire', async (req, res) => {
   const user = (req as any).user;
   const id = parseInt(req.params.id, 10);
-  const reminder = reminderRepository.getById(id);
+  // 手动触发要真正发通知，这里需要明文凭据；响应只回发送结果，不含凭据
+  const reminder = reminderRepository.getByIdWithSecrets(id);
 
   if (!reminder) {
     res.status(404).json({ success: false, error: '未找到该提醒' });

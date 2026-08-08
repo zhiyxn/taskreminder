@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import { encryptSecret, decryptSecret, maskSecret, isEncrypted, SECRET_MASK } from './security/crypto';
 
 const dataDir = path.resolve(__dirname, '..', 'data');
 if (!fs.existsSync(dataDir)) {
@@ -136,6 +137,23 @@ if (!logColNames.includes('description')) {
   db.exec('ALTER TABLE notification_log ADD COLUMN description TEXT');
 }
 
+// 会话有效期（小时），默认 7 天
+const SESSION_TTL_HOURS = (() => {
+  const parsed = parseInt(process.env.SESSION_TTL_HOURS || '', 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 168;
+})();
+const SESSION_TTL_MODIFIER = `+${SESSION_TTL_HOURS} hours`;
+// 剩余寿命低于一半时滑动续期，避免每个请求都写库
+const SESSION_RENEW_MODIFIER = `+${Math.max(1, Math.floor(SESSION_TTL_HOURS / 2))} hours`;
+
+// 迁移: 为 sessions 表添加 expires_at 列
+const sessionColumns = db.prepare('PRAGMA table_info(sessions)').all() as { name: string }[];
+if (!sessionColumns.map(c => c.name).includes('expires_at')) {
+  db.exec('ALTER TABLE sessions ADD COLUMN expires_at TEXT');
+  // 存量会话按其创建时间补算到期时间，已超期的会在下次校验时被拒绝
+  db.prepare("UPDATE sessions SET expires_at = datetime(created_at, ?)").run(SESSION_TTL_MODIFIER);
+}
+
 export interface Reminder {
   id: number;
   title: string;
@@ -172,31 +190,82 @@ export interface NotificationLog {
   description?: string | null;
 }
 
+/**
+ * 需要静态加密的字段。均为可直接冒用的凭据：
+ * bot token 能操控机器人、SMTP 密码是邮箱口令、
+ * app secret 能换取企业级 token、bark_url 内含可向设备推送的 device key。
+ * 其余字段（chat_id、app_id、收件人等）是标识而非凭据，保持明文以便用户核对。
+ */
+const SECRET_FIELDS = ['telegram_bot_token', 'email_pass', 'feishu_app_secret', 'bark_url'] as const;
+
+function decryptRow(row: any): any {
+  for (const field of SECRET_FIELDS) row[field] = decryptSecret(row[field]);
+  return row;
+}
+
+function maskRow(row: any): any {
+  for (const field of SECRET_FIELDS) row[field] = maskSecret(row[field]);
+  return row;
+}
+
+// 迁移: 将存量明文凭据就地加密（幂等，已加密的会跳过）
+{
+  const rows = db.prepare(
+    `SELECT id, ${SECRET_FIELDS.join(', ')} FROM reminders`
+  ).all() as Record<string, any>[];
+
+  const pending = rows.filter(row =>
+    SECRET_FIELDS.some(f => row[f] !== null && row[f] !== '' && !isEncrypted(row[f]))
+  );
+
+  if (pending.length > 0) {
+    const stmt = db.prepare(
+      `UPDATE reminders SET ${SECRET_FIELDS.map(f => `${f} = ?`).join(', ')} WHERE id = ?`
+    );
+    const migrate = db.transaction((items: Record<string, any>[]) => {
+      for (const row of items) {
+        stmt.run(...SECRET_FIELDS.map(f => encryptSecret(row[f])), row.id);
+      }
+    });
+    migrate(pending);
+    console.log(`🔐 已加密 ${pending.length} 条提醒中的通知凭据`);
+  }
+}
+
 export const reminderRepository = {
   getAll(userId?: number): Reminder[] {
     if (userId !== undefined) {
       return db.prepare(`
-        SELECT r.*, u.username 
-        FROM reminders r 
-        LEFT JOIN users u ON r.user_id = u.id 
-        WHERE r.user_id = ? 
+        SELECT r.*, u.username
+        FROM reminders r
+        LEFT JOIN users u ON r.user_id = u.id
+        WHERE r.user_id = ?
         ORDER BY r.id DESC
-      `).all(userId) as Reminder[];
+      `).all(userId).map(maskRow) as Reminder[];
     }
     return db.prepare(`
-      SELECT r.*, u.username 
-      FROM reminders r 
-      LEFT JOIN users u ON r.user_id = u.id 
+      SELECT r.*, u.username
+      FROM reminders r
+      LEFT JOIN users u ON r.user_id = u.id
       ORDER BY r.id DESC
-    `).all() as Reminder[];
+    `).all().map(maskRow) as Reminder[];
   },
 
+  /** 凭据以掩码返回，可安全用于接口响应 */
   getById(id: number): Reminder | undefined {
-    return db.prepare('SELECT * FROM reminders WHERE id = ?').get(id) as Reminder | undefined;
+    const row = db.prepare('SELECT * FROM reminders WHERE id = ?').get(id);
+    return row ? (maskRow(row) as Reminder) : undefined;
   },
 
-  getActive(): Reminder[] {
-    return db.prepare('SELECT * FROM reminders WHERE enabled = 1').all() as Reminder[];
+  /** 含明文凭据，仅供发送通知使用，切勿直接返回给客户端 */
+  getByIdWithSecrets(id: number): Reminder | undefined {
+    const row = db.prepare('SELECT * FROM reminders WHERE id = ?').get(id);
+    return row ? (decryptRow(row) as Reminder) : undefined;
+  },
+
+  /** 含明文凭据，仅供调度器发送通知使用 */
+  getActiveWithSecrets(): Reminder[] {
+    return db.prepare('SELECT * FROM reminders WHERE enabled = 1').all().map(decryptRow) as Reminder[];
   },
 
   create(data: {
@@ -228,17 +297,19 @@ export const reminderRepository = {
       data.start_date,
       data.interval_days,
       data.interval_unit || 'days',
-      data.telegram_bot_token || null,
+      // 新建时收到掩码说明前端是从已脱敏的数据带过来的（例如克隆），
+      // 此时并没有真实凭据可写，按未配置处理
+      encryptSecret(data.telegram_bot_token === SECRET_MASK ? null : data.telegram_bot_token),
       data.telegram_chat_id || null,
       data.email_host || null,
       data.email_port || null,
       data.email_user || null,
-      data.email_pass || null,
+      encryptSecret(data.email_pass === SECRET_MASK ? null : data.email_pass),
       data.email_to || null,
       data.feishu_app_id || null,
-      data.feishu_app_secret || null,
+      encryptSecret(data.feishu_app_secret === SECRET_MASK ? null : data.feishu_app_secret),
       data.feishu_receive_id || null,
-      data.bark_url || null,
+      encryptSecret(data.bark_url === SECRET_MASK ? null : data.bark_url),
       data.user_id || null
     );
     return reminderRepository.getById(result.lastInsertRowid as number)!;
@@ -248,22 +319,29 @@ export const reminderRepository = {
     const fields: string[] = [];
     const values: any[] = [];
 
+    // 凭据字段收到掩码代表"未修改"，保持库中原值
+    const putSecret = (column: typeof SECRET_FIELDS[number], value: unknown) => {
+      if (value === undefined || value === SECRET_MASK) return;
+      fields.push(`${column} = ?`);
+      values.push(encryptSecret(value as string | null));
+    };
+
     if (data.title !== undefined) { fields.push('title = ?'); values.push(data.title); }
     if (data.description !== undefined) { fields.push('description = ?'); values.push(data.description || null); }
     if (data.start_date !== undefined) { fields.push('start_date = ?'); values.push(data.start_date); }
     if (data.interval_days !== undefined) { fields.push('interval_days = ?'); values.push(data.interval_days); }
     if (data.interval_unit !== undefined) { fields.push('interval_unit = ?'); values.push(data.interval_unit); }
-    if (data.telegram_bot_token !== undefined) { fields.push('telegram_bot_token = ?'); values.push(data.telegram_bot_token || null); }
+    putSecret('telegram_bot_token', data.telegram_bot_token);
     if (data.telegram_chat_id !== undefined) { fields.push('telegram_chat_id = ?'); values.push(data.telegram_chat_id || null); }
     if (data.email_host !== undefined) { fields.push('email_host = ?'); values.push(data.email_host || null); }
     if (data.email_port !== undefined) { fields.push('email_port = ?'); values.push(data.email_port || null); }
     if (data.email_user !== undefined) { fields.push('email_user = ?'); values.push(data.email_user || null); }
-    if (data.email_pass !== undefined) { fields.push('email_pass = ?'); values.push(data.email_pass || null); }
+    putSecret('email_pass', data.email_pass);
     if (data.email_to !== undefined) { fields.push('email_to = ?'); values.push(data.email_to || null); }
     if (data.feishu_app_id !== undefined) { fields.push('feishu_app_id = ?'); values.push(data.feishu_app_id || null); }
-    if (data.feishu_app_secret !== undefined) { fields.push('feishu_app_secret = ?'); values.push(data.feishu_app_secret || null); }
+    putSecret('feishu_app_secret', data.feishu_app_secret);
     if (data.feishu_receive_id !== undefined) { fields.push('feishu_receive_id = ?'); values.push(data.feishu_receive_id || null); }
-    if (data.bark_url !== undefined) { fields.push('bark_url = ?'); values.push(data.bark_url || null); }
+    putSecret('bark_url', data.bark_url);
     if (data.enabled !== undefined) { fields.push('enabled = ?'); values.push(data.enabled); }
 
     if (fields.length === 0) return reminderRepository.getById(id);
@@ -416,15 +494,33 @@ export const userRepository = {
 export const sessionRepository = {
   create(userId: number, token: string): void {
     db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
-    db.prepare('INSERT INTO sessions (token, user_id) VALUES (?, ?)').run(token, userId);
+    db.prepare(
+      "INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, datetime('now', '+8 hours', ?))"
+    ).run(token, userId, SESSION_TTL_MODIFIER);
   },
 
-  getByToken(token: string): { token: string; user_id: number; created_at: string } | undefined {
-    return db.prepare('SELECT * FROM sessions WHERE token = ?').get(token) as { token: string; user_id: number; created_at: string } | undefined;
+  /** 已过期或缺少到期时间的会话一律视为无效 */
+  getByToken(token: string): { token: string; user_id: number; created_at: string; expires_at: string } | undefined {
+    return db.prepare(
+      "SELECT * FROM sessions WHERE token = ? AND expires_at > datetime('now', '+8 hours')"
+    ).get(token) as { token: string; user_id: number; created_at: string; expires_at: string } | undefined;
+  },
+
+  /** 滑动续期：剩余寿命不足一半时才写库，避免每个请求都产生写操作 */
+  touch(token: string): void {
+    db.prepare(`
+      UPDATE sessions SET expires_at = datetime('now', '+8 hours', ?)
+      WHERE token = ? AND expires_at < datetime('now', '+8 hours', ?)
+    `).run(SESSION_TTL_MODIFIER, token, SESSION_RENEW_MODIFIER);
   },
 
   delete(token: string): void {
     db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
+  },
+
+  deleteExpired(): number {
+    return db.prepare("DELETE FROM sessions WHERE expires_at IS NULL OR expires_at <= datetime('now', '+8 hours')")
+      .run().changes;
   }
 };
 
