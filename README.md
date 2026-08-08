@@ -134,8 +134,10 @@ docker run -d \
 
 2. **安装依赖**
 
+   > 需要 Node.js >= 22.13、pnpm 11（`corepack enable` 即可自动使用锁定版本）
+
    ```bash
-   npm install
+   pnpm install
    ```
 
 3. **配置环境变量**
@@ -149,31 +151,34 @@ docker run -d \
    ```
    #服务端口
    PORT=3000
-   #默认管理员账号密码
+   #默认管理员用户名
    LOGIN_USERNAME=admin
-   LOGIN_PASSWORD=admin123
+   #默认管理员密码，留空则首次启动时随机生成并打印一次
+   LOGIN_PASSWORD=
    ```
+   
+   > 完整配置项（凭据加密密钥、会话有效期、反向代理等）见 `.env.example`
    
 4. **编译 **
 
    ```bash
-   npm run build
+   pnpm run build
    ```
 
 5. **启动**
 
    ```bash
    # 生产模式
-   npm start
+   pnpm start
 
    # 开发模式（热重载）
-   npm run dev
+   pnpm run dev
    ```
 
 ### 方式四：PM2 部署（源码方式）
 
 ```bash
-npm run build
+pnpm run build
 pm2 start dist/index.js --name bh-reminder
 pm2 save
 ```

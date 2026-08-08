@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "事项提醒系统 - 支持 Telegram 和 QQ Bot 通知",
   "main": "dist/index.js",
+  "packageManager": "pnpm@11.20.0",
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
