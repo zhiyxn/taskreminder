@@ -20,9 +20,9 @@ if (trustProxyEnv) {
   app.set('trust proxy', Number.isInteger(numeric) ? numeric : trustProxyEnv);
 }
 
-const publicDir = require('fs').existsSync(path.join(__dirname, 'public'))
-  ? path.join(__dirname, 'public')
-  : path.join(__dirname, '..', 'src', 'public');
+const publicDir = require("fs").existsSync(path.join(__dirname, "public"))
+  ? path.join(__dirname, "public")
+  : path.join(__dirname, "..", "src", "public");
 
 app.use(cors());
 app.use(express.json());

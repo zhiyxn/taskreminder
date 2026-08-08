@@ -9,17 +9,29 @@ RUN corepack enable && corepack prepare pnpm@11.20.0 --activate
 
 WORKDIR /app
 
-# 先复制依赖清单，利用 Docker 缓存层。
-# pnpm-workspace.yaml 里含 allowBuilds，缺失会导致 better-sqlite3 跳过原生编译
+# 先复制根级依赖清单
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
-# 按 lockfile 精确安装；与 package.json 不一致时直接失败，而非静默改写锁文件
-RUN pnpm install --frozen-lockfile
-
-# 复制源码并编译
+# 复制后端源码
 COPY tsconfig.json ./
 COPY src/ ./src/
 
+# 复制前端源码（workspace 成员）
+COPY web/package.json ./web/
+COPY web/index.html ./web/
+COPY web/vite.config.ts ./web/
+COPY web/tsconfig.json ./web/
+COPY web/tsconfig.app.json ./web/
+COPY web/tsconfig.node.json ./web/
+COPY web/src/ ./web/src/
+
+# 按 lockfile 精确安装整个 workspace
+RUN pnpm install --frozen-lockfile
+
+# 先构建前端（Vite → dist/public/）
+RUN pnpm --filter web run build
+
+# 再构建后端（tsc → dist/）
 RUN pnpm run build
 
 # 暴露端口
