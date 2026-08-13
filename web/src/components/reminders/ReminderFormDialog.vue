@@ -44,7 +44,7 @@ function onUnitChange() {
 }
 
 // vee-validate 表单
-const { handleSubmit, defineField, resetForm } = useForm({
+const { handleSubmit, defineField, resetForm, errors } = useForm({
   validationSchema: {
     title: (v: string) => {
       if (!v || !v.trim()) return "请输入事项标题"
@@ -224,9 +224,11 @@ const submit = handleSubmit(async () => {
             id="title"
             v-model="title"
             v-bind="titleAttrs"
+            :aria-invalid="!!errors.title"
+            aria-describedby="title-error"
             placeholder="例如：周报提交"
           />
-          <p v-if="titleAttrs.errorMessage" class="mt-1 text-xs text-destructive">{{ titleAttrs.errorMessage }}</p>
+          <p v-if="errors.title" id="title-error" class="mt-1 text-xs text-destructive">{{ errors.title }}</p>
         </div>
         <div>
           <label for="desc" class="mb-1.5 block text-sm font-medium text-foreground">详细内容（选填）</label>
@@ -239,9 +241,11 @@ const submit = handleSubmit(async () => {
               id="start-date"
               v-model="startDate"
               v-bind="startDateAttrs"
+              :aria-invalid="!!errors.startDate"
+              aria-describedby="start-date-error"
               type="datetime-local"
             />
-            <p v-if="startDateAttrs.errorMessage" class="mt-1 text-xs text-destructive">{{ startDateAttrs.errorMessage }}</p>
+            <p v-if="errors.startDate" id="start-date-error" class="mt-1 text-xs text-destructive">{{ errors.startDate }}</p>
           </div>
           <div>
             <label for="interval" class="mb-1.5 block text-sm font-medium text-foreground">间隔周期 *</label>
@@ -251,6 +255,8 @@ const submit = handleSubmit(async () => {
                   id="interval"
                   v-model.number="intervalDays"
                   v-bind="intervalDaysAttrs"
+                  :aria-invalid="!!errors.intervalDays"
+                  aria-describedby="interval-error"
                   type="number"
                   :min="1"
                   :max="intervalMax"
@@ -266,7 +272,7 @@ const submit = handleSubmit(async () => {
                 </SelectContent>
               </Select>
             </div>
-            <p v-if="intervalDaysAttrs.errorMessage" class="mt-1 text-xs text-destructive">{{ intervalDaysAttrs.errorMessage }}</p>
+            <p v-if="errors.intervalDays" id="interval-error" class="mt-1 text-xs text-destructive">{{ errors.intervalDays }}</p>
           </div>
         </div>
 
