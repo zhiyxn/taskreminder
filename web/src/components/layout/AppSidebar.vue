@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { useAuthStore } from "@/stores/auth"
-import { useRoute, useRouter } from "vue-router"
+import { useRoute } from "vue-router"
 import { computed } from "vue"
-import { Bell, LayoutDashboard, ScrollText, Users, Settings, LogOut } from "@lucide/vue"
+import { Bell, LayoutDashboard, ScrollText, Users, Settings } from "@lucide/vue"
 
 const auth = useAuthStore()
 const route = useRoute()
-const router = useRouter()
 
 defineEmits<{ navigate: [] }>()
 
@@ -24,11 +23,6 @@ const navItems = computed(() => {
 
 function isActive(path: string) {
   return route.path === path || route.path.startsWith(path + "/")
-}
-
-function logout() {
-  auth.logout()
-  router.replace("/login")
 }
 </script>
 
@@ -65,30 +59,11 @@ function logout() {
         <component :is="item.icon" class="size-4" />
         {{ item.label }}
       </a>
-
-      <div class="mb-2 px-3 pt-4 text-xs font-semibold uppercase tracking-wider text-sidebar-muted">
-        系统
-      </div>
-      <button
-        class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
-        @click="logout"
-      >
-        <LogOut class="size-4" />
-        退出登录
-      </button>
     </nav>
 
     <!-- 底部 -->
-    <div class="border-t border-sidebar-border px-5 py-4">
-      <div class="flex items-center gap-2">
-        <div class="flex size-8 items-center justify-center rounded-full bg-sidebar-accent text-xs font-bold text-sidebar-foreground">
-          {{ auth.username.charAt(0).toUpperCase() }}
-        </div>
-        <div>
-          <div class="text-sm font-medium text-sidebar-foreground">{{ auth.username }}</div>
-          <div class="text-xs text-sidebar-muted">v1.0.0</div>
-        </div>
-      </div>
+    <div class="border-t border-sidebar-border px-5 py-3 text-center text-xs text-sidebar-muted">
+      v1.0.0
     </div>
   </aside>
 </template>
