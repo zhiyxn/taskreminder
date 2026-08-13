@@ -232,6 +232,10 @@ router.put('/users/:id', requireAdmin, (req, res) => {
   }
 
   if (password) {
+    if (String(password).length < 6) {
+      res.status(400).json({ success: false, error: '新密码至少需要 6 位' });
+      return;
+    }
     const hashed = bcrypt.hashSync(String(password), 10);
     userRepository.updatePassword(id, hashed);
   }

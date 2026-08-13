@@ -4,6 +4,17 @@ import { useRemindersStore } from "@/stores/reminders"
 import { useAuthStore } from "@/stores/auth"
 import { SECRET_MASK, SECRET_FIELDS, type Reminder } from "@/types"
 import { nowInTz, tzToBeijing, beijingToTz } from "@/lib/timezone"
+import {
+  integerRange,
+  intervalUnit as intervalUnitRule,
+  optionalBarkTarget,
+  optionalEmail,
+  optionalHostname,
+  optionalIntegerRange,
+  optionalMaxLength,
+  optionalNoWhitespace,
+  required,
+} from "@/lib/formValidation"
 import { useForm } from "vee-validate"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -44,20 +55,23 @@ function onUnitChange() {
 }
 
 // vee-validate 表单
-const { handleSubmit, defineField, resetForm, errors } = useForm({
+const { handleSubmit, defineField, resetForm, errors, setFieldError } = useForm({
   validationSchema: {
-    title: (v: string) => {
-      if (!v || !v.trim()) return "请输入事项标题"
-      return true
-    },
-    startDate: (v: string) => {
-      if (!v) return "请选择开始时间"
-      return true
-    },
-    intervalDays: (v: number) => {
-      if (v == null || v <= 0) return "间隔周期必须大于 0"
-      return true
-    },
+    title: required("请输入事项标题"),
+    startDate: required("请选择开始时间"),
+    intervalDays: integerRange(1, () => intervalMax.value, () => `请输入 1 到 ${intervalMax.value} 之间的整数`),
+    intervalUnit: intervalUnitRule,
+    telegramBotToken: optionalNoWhitespace("Bot Token 不能包含空格"),
+    telegramChatId: optionalNoWhitespace("Chat ID 不能包含空格"),
+    emailHost: optionalHostname(),
+    emailPort: optionalIntegerRange(1, 65535, "请输入 1 到 65535 之间的端口"),
+    emailUser: optionalNoWhitespace("SMTP 用户名不能包含空格"),
+    emailPass: optionalMaxLength(512, "SMTP 密码不能超过 512 个字符"),
+    emailTo: optionalEmail("请输入有效的收件邮箱"),
+    feishuAppId: optionalNoWhitespace("App ID 不能包含空格"),
+    feishuAppSecret: optionalNoWhitespace("App Secret 不能包含空格"),
+    feishuReceiveId: optionalNoWhitespace("Open ID 不能包含空格"),
+    barkUrl: optionalBarkTarget(),
   },
   initialValues: {
     title: "",
@@ -65,6 +79,17 @@ const { handleSubmit, defineField, resetForm, errors } = useForm({
     startDate: nowInTz(auth.timezone),
     intervalDays: 7,
     intervalUnit: "days",
+    telegramBotToken: "",
+    telegramChatId: "",
+    emailHost: "",
+    emailPort: undefined as number | undefined,
+    emailUser: "",
+    emailPass: "",
+    emailTo: "",
+    feishuAppId: "",
+    feishuAppSecret: "",
+    feishuReceiveId: "",
+    barkUrl: "",
   },
 })
 
@@ -74,19 +99,18 @@ const [startDate, startDateAttrs] = defineField("startDate")
 const [intervalDays, intervalDaysAttrs] = defineField("intervalDays")
 const [intervalUnit] = defineField("intervalUnit")
 
-// 渠道字段（不做校验）
 const activeTab = ref("telegram")
-const telegramBotToken = ref("")
-const telegramChatId = ref("")
-const emailHost = ref("")
-const emailPort = ref<number | undefined>(undefined)
-const emailUser = ref("")
-const emailPass = ref("")
-const emailTo = ref("")
-const feishuAppId = ref("")
-const feishuAppSecret = ref("")
-const feishuReceiveId = ref("")
-const barkUrl = ref("")
+const [telegramBotToken, telegramBotTokenAttrs] = defineField("telegramBotToken")
+const [telegramChatId, telegramChatIdAttrs] = defineField("telegramChatId")
+const [emailHost, emailHostAttrs] = defineField("emailHost")
+const [emailPort, emailPortAttrs] = defineField("emailPort")
+const [emailUser, emailUserAttrs] = defineField("emailUser")
+const [emailPass, emailPassAttrs] = defineField("emailPass")
+const [emailTo, emailToAttrs] = defineField("emailTo")
+const [feishuAppId, feishuAppIdAttrs] = defineField("feishuAppId")
+const [feishuAppSecret, feishuAppSecretAttrs] = defineField("feishuAppSecret")
+const [feishuReceiveId, feishuReceiveIdAttrs] = defineField("feishuReceiveId")
+const [barkUrl, barkUrlAttrs] = defineField("barkUrl")
 const submitting = ref(false)
 
 function fillFromReminder(r: Reminder) {
@@ -97,20 +121,20 @@ function fillFromReminder(r: Reminder) {
       startDate: beijingToTz(r.start_date, auth.timezone),
       intervalDays: r.interval_days || 7,
       intervalUnit: r.interval_unit || "days",
+      telegramBotToken: r.telegram_bot_token || "",
+      telegramChatId: r.telegram_chat_id || "",
+      emailHost: r.email_host || "",
+      emailPort: r.email_port ?? undefined,
+      emailUser: r.email_user || "",
+      emailPass: r.email_pass || "",
+      emailTo: r.email_to || "",
+      feishuAppId: r.feishu_app_id || "",
+      feishuAppSecret: r.feishu_app_secret || "",
+      feishuReceiveId: r.feishu_receive_id || "",
+      barkUrl: r.bark_url || "",
     },
   })
   onUnitChange()
-  telegramBotToken.value = r.telegram_bot_token || ""
-  telegramChatId.value = r.telegram_chat_id || ""
-  emailHost.value = r.email_host || ""
-  emailPort.value = r.email_port ?? undefined
-  emailUser.value = r.email_user || ""
-  emailPass.value = r.email_pass || ""
-  emailTo.value = r.email_to || ""
-  feishuAppId.value = r.feishu_app_id || ""
-  feishuAppSecret.value = r.feishu_app_secret || ""
-  feishuReceiveId.value = r.feishu_receive_id || ""
-  barkUrl.value = r.bark_url || ""
 
   if (barkUrl.value) activeTab.value = "bark"
   else if (feishuAppId.value || feishuReceiveId.value) activeTab.value = "feishu"
@@ -126,20 +150,20 @@ function doResetForm() {
       startDate: nowInTz(auth.timezone),
       intervalDays: 7,
       intervalUnit: "days",
+      telegramBotToken: "",
+      telegramChatId: "",
+      emailHost: "",
+      emailPort: undefined,
+      emailUser: "",
+      emailPass: "",
+      emailTo: "",
+      feishuAppId: "",
+      feishuAppSecret: "",
+      feishuReceiveId: "",
+      barkUrl: "",
     },
   })
   onUnitChange()
-  telegramBotToken.value = ""
-  telegramChatId.value = ""
-  emailHost.value = ""
-  emailPort.value = undefined
-  emailUser.value = ""
-  emailPass.value = ""
-  emailTo.value = ""
-  feishuAppId.value = ""
-  feishuAppSecret.value = ""
-  feishuReceiveId.value = ""
-  barkUrl.value = ""
   activeTab.value = "telegram"
 }
 
@@ -165,42 +189,56 @@ watch(
 
 function buildForm(): Record<string, any> {
   const isMask = (v: string, field: string) => SECRET_FIELDS.includes(field as any) && v === SECRET_MASK
+  const clean = (v: string) => v.trim() || undefined
   return {
-    title: title.value,
+    title: title.value.trim(),
     description: description.value || undefined,
     start_date: tzToBeijing(startDate.value, auth.timezone),
     interval_days: intervalDays.value,
     interval_unit: intervalUnit.value,
-    telegram_bot_token: isMask(telegramBotToken.value, "telegram_bot_token") ? undefined : (telegramBotToken.value || undefined),
-    telegram_chat_id: telegramChatId.value || undefined,
-    email_host: emailHost.value || undefined,
+    telegram_bot_token: isMask(telegramBotToken.value, "telegram_bot_token") ? undefined : clean(telegramBotToken.value),
+    telegram_chat_id: clean(telegramChatId.value),
+    email_host: clean(emailHost.value),
     email_port: emailPort.value || undefined,
-    email_user: emailUser.value || undefined,
+    email_user: clean(emailUser.value),
     email_pass: isMask(emailPass.value, "email_pass") ? undefined : (emailPass.value || undefined),
-    email_to: emailTo.value || undefined,
-    feishu_app_id: feishuAppId.value || undefined,
-    feishu_app_secret: isMask(feishuAppSecret.value, "feishu_app_secret") ? undefined : (feishuAppSecret.value || undefined),
-    feishu_receive_id: feishuReceiveId.value || undefined,
-    bark_url: isMask(barkUrl.value, "bark_url") ? undefined : (barkUrl.value || undefined),
+    email_to: clean(emailTo.value),
+    feishu_app_id: clean(feishuAppId.value),
+    feishu_app_secret: isMask(feishuAppSecret.value, "feishu_app_secret") ? undefined : clean(feishuAppSecret.value),
+    feishu_receive_id: clean(feishuReceiveId.value),
+    bark_url: isMask(barkUrl.value, "bark_url") ? undefined : clean(barkUrl.value),
   }
 }
 
 const submit = handleSubmit(async () => {
   const form = buildForm()
   submitting.value = true
-  let result
-  if (props.editingId) {
-    result = await store.update(props.editingId, form)
-  } else {
-    result = await store.create(form)
+  try {
+    const result = props.editingId
+      ? await store.update(props.editingId, form)
+      : await store.create(form)
+    if (result.success) {
+      emit("update:open", false)
+      emit("saved")
+    } else {
+      alert(result.error || "操作失败")
+    }
+  } catch (err: any) {
+    const message = err.response?.data?.error || "操作失败"
+    if (message.includes("Bark URL")) {
+      setFieldError("barkUrl", message)
+      activeTab.value = "bark"
+    } else {
+      alert(message)
+    }
+  } finally {
+    submitting.value = false
   }
-  submitting.value = false
-  if (result.success) {
-    emit("update:open", false)
-    emit("saved")
-  } else {
-    alert(result.error || "操作失败")
-  }
+}, ({ errors: invalidErrors }) => {
+  if (invalidErrors.telegramBotToken || invalidErrors.telegramChatId) activeTab.value = "telegram"
+  else if (invalidErrors.emailHost || invalidErrors.emailPort || invalidErrors.emailUser || invalidErrors.emailPass || invalidErrors.emailTo) activeTab.value = "email"
+  else if (invalidErrors.feishuAppId || invalidErrors.feishuAppSecret || invalidErrors.feishuReceiveId) activeTab.value = "feishu"
+  else if (invalidErrors.barkUrl) activeTab.value = "bark"
 })
 </script>
 
@@ -264,7 +302,7 @@ const submit = handleSubmit(async () => {
                 />
               </div>
               <Select v-model="intervalUnit" @update:model-value="onUnitChange">
-                <SelectTrigger class="w-24">
+                <SelectTrigger class="w-24" :aria-invalid="!!errors.intervalUnit" aria-describedby="interval-unit-error">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -273,6 +311,7 @@ const submit = handleSubmit(async () => {
               </Select>
             </div>
             <p v-if="errors.intervalDays" id="interval-error" class="mt-1 text-xs text-destructive">{{ errors.intervalDays }}</p>
+            <p v-if="errors.intervalUnit" id="interval-unit-error" class="mt-1 text-xs text-destructive">{{ errors.intervalUnit }}</p>
           </div>
         </div>
 
@@ -298,12 +337,14 @@ const submit = handleSubmit(async () => {
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="mb-1 block text-xs text-muted-foreground">Bot Token</label>
-                <Input v-model="telegramBotToken" placeholder="留空则使用全局配置" />
+                <label for="telegram-token" class="mb-1 block text-xs text-muted-foreground">Bot Token</label>
+                <Input id="telegram-token" v-model="telegramBotToken" v-bind="telegramBotTokenAttrs" :aria-invalid="!!errors.telegramBotToken" aria-describedby="telegram-token-error" placeholder="留空则使用全局配置" />
+                <p v-if="errors.telegramBotToken" id="telegram-token-error" class="mt-1 text-xs text-destructive">{{ errors.telegramBotToken }}</p>
               </div>
               <div>
-                <label class="mb-1 block text-xs text-muted-foreground">Chat ID</label>
-                <Input v-model="telegramChatId" placeholder="留空则使用全局配置" />
+                <label for="telegram-chat-id" class="mb-1 block text-xs text-muted-foreground">Chat ID</label>
+                <Input id="telegram-chat-id" v-model="telegramChatId" v-bind="telegramChatIdAttrs" :aria-invalid="!!errors.telegramChatId" aria-describedby="telegram-chat-id-error" placeholder="留空则使用全局配置" />
+                <p v-if="errors.telegramChatId" id="telegram-chat-id-error" class="mt-1 text-xs text-destructive">{{ errors.telegramChatId }}</p>
               </div>
             </div>
           </div>
@@ -314,14 +355,34 @@ const submit = handleSubmit(async () => {
               SMTP 配置，密码字段显示为 ******** 代表未修改
             </div>
             <div class="grid grid-cols-2 gap-3">
-              <div><label class="mb-1 block text-xs text-muted-foreground">SMTP 主机</label><Input v-model="emailHost" placeholder="smtp.example.com" /></div>
-              <div><label class="mb-1 block text-xs text-muted-foreground">端口</label><Input v-model.number="emailPort" type="number" min="1" max="65535" placeholder="465" /></div>
+              <div>
+                <label for="email-host" class="mb-1 block text-xs text-muted-foreground">SMTP 主机</label>
+                <Input id="email-host" v-model="emailHost" v-bind="emailHostAttrs" :aria-invalid="!!errors.emailHost" aria-describedby="email-host-error" placeholder="smtp.example.com" />
+                <p v-if="errors.emailHost" id="email-host-error" class="mt-1 text-xs text-destructive">{{ errors.emailHost }}</p>
+              </div>
+              <div>
+                <label for="email-port" class="mb-1 block text-xs text-muted-foreground">端口</label>
+                <Input id="email-port" v-model.number="emailPort" v-bind="emailPortAttrs" :aria-invalid="!!errors.emailPort" aria-describedby="email-port-error" type="number" min="1" max="65535" placeholder="465" />
+                <p v-if="errors.emailPort" id="email-port-error" class="mt-1 text-xs text-destructive">{{ errors.emailPort }}</p>
+              </div>
             </div>
             <div class="grid grid-cols-2 gap-3">
-              <div><label class="mb-1 block text-xs text-muted-foreground">用户名</label><Input v-model="emailUser" placeholder="SMTP 登录用户名" /></div>
-              <div><label class="mb-1 block text-xs text-muted-foreground">密码</label><Input v-model="emailPass" type="password" placeholder="不修改则留空" /></div>
+              <div>
+                <label for="email-user" class="mb-1 block text-xs text-muted-foreground">用户名</label>
+                <Input id="email-user" v-model="emailUser" v-bind="emailUserAttrs" :aria-invalid="!!errors.emailUser" aria-describedby="email-user-error" placeholder="SMTP 登录用户名" />
+                <p v-if="errors.emailUser" id="email-user-error" class="mt-1 text-xs text-destructive">{{ errors.emailUser }}</p>
+              </div>
+              <div>
+                <label for="email-pass" class="mb-1 block text-xs text-muted-foreground">密码</label>
+                <Input id="email-pass" v-model="emailPass" v-bind="emailPassAttrs" :aria-invalid="!!errors.emailPass" aria-describedby="email-pass-error" type="password" placeholder="不修改则留空" />
+                <p v-if="errors.emailPass" id="email-pass-error" class="mt-1 text-xs text-destructive">{{ errors.emailPass }}</p>
+              </div>
             </div>
-            <div><label class="mb-1 block text-xs text-muted-foreground">收件邮箱</label><Input v-model="emailTo" type="email" placeholder="通知发往的邮箱地址" /></div>
+            <div>
+              <label for="email-to" class="mb-1 block text-xs text-muted-foreground">收件邮箱</label>
+              <Input id="email-to" v-model="emailTo" v-bind="emailToAttrs" :aria-invalid="!!errors.emailTo" aria-describedby="email-to-error" type="email" placeholder="通知发往的邮箱地址" />
+              <p v-if="errors.emailTo" id="email-to-error" class="mt-1 text-xs text-destructive">{{ errors.emailTo }}</p>
+            </div>
           </div>
 
           <!-- 飞书 -->
@@ -330,10 +391,22 @@ const submit = handleSubmit(async () => {
               飞书企业自建应用，App Secret 显示为 ******** 代表未修改
             </div>
             <div class="grid grid-cols-2 gap-3">
-              <div><label class="mb-1 block text-xs text-muted-foreground">App ID</label><Input v-model="feishuAppId" placeholder="飞书 App ID" /></div>
-              <div><label class="mb-1 block text-xs text-muted-foreground">App Secret</label><Input v-model="feishuAppSecret" type="password" placeholder="不修改则留空" /></div>
+              <div>
+                <label for="feishu-app-id" class="mb-1 block text-xs text-muted-foreground">App ID</label>
+                <Input id="feishu-app-id" v-model="feishuAppId" v-bind="feishuAppIdAttrs" :aria-invalid="!!errors.feishuAppId" aria-describedby="feishu-app-id-error" placeholder="飞书 App ID" />
+                <p v-if="errors.feishuAppId" id="feishu-app-id-error" class="mt-1 text-xs text-destructive">{{ errors.feishuAppId }}</p>
+              </div>
+              <div>
+                <label for="feishu-app-secret" class="mb-1 block text-xs text-muted-foreground">App Secret</label>
+                <Input id="feishu-app-secret" v-model="feishuAppSecret" v-bind="feishuAppSecretAttrs" :aria-invalid="!!errors.feishuAppSecret" aria-describedby="feishu-app-secret-error" type="password" placeholder="不修改则留空" />
+                <p v-if="errors.feishuAppSecret" id="feishu-app-secret-error" class="mt-1 text-xs text-destructive">{{ errors.feishuAppSecret }}</p>
+              </div>
             </div>
-            <div><label class="mb-1 block text-xs text-muted-foreground">接收者 Open ID</label><Input v-model="feishuReceiveId" placeholder="消息接收者的 Open ID" /></div>
+            <div>
+              <label for="feishu-receive-id" class="mb-1 block text-xs text-muted-foreground">接收者 Open ID</label>
+              <Input id="feishu-receive-id" v-model="feishuReceiveId" v-bind="feishuReceiveIdAttrs" :aria-invalid="!!errors.feishuReceiveId" aria-describedby="feishu-receive-id-error" placeholder="消息接收者的 Open ID" />
+              <p v-if="errors.feishuReceiveId" id="feishu-receive-id-error" class="mt-1 text-xs text-destructive">{{ errors.feishuReceiveId }}</p>
+            </div>
           </div>
 
           <!-- Bark -->
@@ -341,7 +414,11 @@ const submit = handleSubmit(async () => {
             <div class="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-primary dark:border-primary/30 dark:bg-primary/5 dark:text-primary">
               填入 Bark 推送 URL 或 Device Key
             </div>
-            <div><label class="mb-1 block text-xs text-muted-foreground">Bark URL / Device Key</label><Input v-model="barkUrl" placeholder="abc123 或 https://api.day.app/abc123" /></div>
+            <div>
+              <label for="bark-url" class="mb-1 block text-xs text-muted-foreground">Bark URL / Device Key</label>
+              <Input id="bark-url" v-model="barkUrl" v-bind="barkUrlAttrs" :aria-invalid="!!errors.barkUrl" aria-describedby="bark-url-error" placeholder="abc123 或 https://api.day.app/abc123" />
+              <p v-if="errors.barkUrl" id="bark-url-error" class="mt-1 text-xs text-destructive">{{ errors.barkUrl }}</p>
+            </div>
           </div>
         </div>
 

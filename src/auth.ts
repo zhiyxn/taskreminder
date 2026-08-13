@@ -263,6 +263,10 @@ authRouter.put('/settings', requireAuth, (req, res) => {
   }
 
   if (new_password) {
+    if (String(new_password).length < 6) {
+      res.status(400).json({ success: false, error: '新密码至少需要 6 位' });
+      return;
+    }
     const hashed = bcrypt.hashSync(String(new_password), 10);
     userRepository.updatePassword(user.id, hashed);
   }

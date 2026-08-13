@@ -6,6 +6,8 @@ import api from "@/lib/api"
 import { Bell } from "lucide-vue-next"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { useForm } from "vee-validate"
+import { email, exactLength, minLength, required } from "@/lib/formValidation"
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -19,36 +21,61 @@ function postLoginPath() {
 }
 
 // 登录
-const loginUsername = ref("")
-const loginPassword = ref("")
 const loginError = ref("")
 const loginLoading = ref(false)
 
-async function doLogin() {
+const {
+  handleSubmit: handleLoginSubmit,
+  defineField: defineLoginField,
+  errors: loginErrors,
+} = useForm({
+  validationSchema: {
+    loginUsername: required("请输入用户名或邮箱"),
+    loginPassword: required("请输入密码"),
+  },
+  initialValues: { loginUsername: "", loginPassword: "" },
+})
+
+const [loginUsername, loginUsernameAttrs] = defineLoginField("loginUsername")
+const [loginPassword, loginPasswordAttrs] = defineLoginField("loginPassword")
+
+const doLogin = handleLoginSubmit(async (values) => {
   loginError.value = ""
-  if (!loginUsername.value || !loginPassword.value) {
-    loginError.value = "请输入用户名和密码"
-    return
-  }
   loginLoading.value = true
-  const result = await auth.login(loginUsername.value, loginPassword.value)
+  const result = await auth.login(values.loginUsername.trim(), values.loginPassword)
   loginLoading.value = false
   if (result.success) {
     router.replace(postLoginPath())
   } else {
     loginError.value = result.error || "登录失败"
   }
-}
+})
 
 // 注册
 const showRegister = ref(false)
-const registerEmail = ref("")
-const registerPassword = ref("")
-const captchaCode = ref("")
 const captchaId = ref("")
 const captchaSvg = ref("")
 const registerError = ref("")
 const registerLoading = ref(false)
+
+const {
+  handleSubmit: handleRegisterSubmit,
+  defineField: defineRegisterField,
+  resetForm: resetRegisterForm,
+  errors: registerErrors,
+  setFieldError: setRegisterFieldError,
+} = useForm({
+  validationSchema: {
+    registerEmail: email("请输入有效的邮箱地址"),
+    registerPassword: minLength(6, "密码至少需要 6 位"),
+    captchaCode: exactLength(4, "请输入 4 位验证码"),
+  },
+  initialValues: { registerEmail: "", registerPassword: "", captchaCode: "" },
+})
+
+const [registerEmail, registerEmailAttrs] = defineRegisterField("registerEmail")
+const [registerPassword, registerPasswordAttrs] = defineRegisterField("registerPassword")
+const [captchaCode, captchaCodeAttrs] = defineRegisterField("captchaCode")
 
 async function refreshCaptcha() {
   try {
@@ -62,35 +89,24 @@ async function refreshCaptcha() {
   }
 }
 
-async function doRegister() {
+const doRegister = handleRegisterSubmit(async (values) => {
   registerError.value = ""
-  if (!registerEmail.value || !registerPassword.value) {
-    registerError.value = "请输入邮箱和密码"
-    return
-  }
-  if (registerPassword.value.length < 6) {
-    registerError.value = "密码至少需要 6 位"
-    return
-  }
-  if (!captchaCode.value) {
-    registerError.value = "请输入验证码"
-    return
-  }
   registerLoading.value = true
-  const result = await auth.register(registerEmail.value, registerPassword.value, captchaId.value, captchaCode.value)
+  const result = await auth.register(values.registerEmail.trim(), values.registerPassword, captchaId.value, values.captchaCode.trim())
   registerLoading.value = false
   if (result.success) {
     alert("注册成功，请登录")
-    loginUsername.value = registerEmail.value
-    registerEmail.value = ""
-    registerPassword.value = ""
-    captchaCode.value = ""
+    loginUsername.value = values.registerEmail.trim()
+    resetRegisterForm()
     showRegister.value = false
   } else {
-    registerError.value = result.error || "注册失败"
+    const message = result.error || "注册失败"
+    if (message.includes("邮箱")) setRegisterFieldError("registerEmail", message)
+    else if (message.includes("验证码")) setRegisterFieldError("captchaCode", message)
+    else registerError.value = message
     await refreshCaptcha()
   }
-}
+})
 
 </script>
 
@@ -124,20 +140,28 @@ async function doRegister() {
           <Input
             id="login-username"
             v-model="loginUsername"
+            v-bind="loginUsernameAttrs"
+            :aria-invalid="!!loginErrors.loginUsername"
+            aria-describedby="login-username-error"
             type="text"
             autocomplete="username"
             placeholder="admin@example.com"
           />
+          <p v-if="loginErrors.loginUsername" id="login-username-error" class="mt-1 text-xs text-destructive">{{ loginErrors.loginUsername }}</p>
         </div>
         <div>
           <label for="login-password" class="mb-1.5 block text-sm font-medium text-foreground">密码</label>
           <Input
             id="login-password"
             v-model="loginPassword"
+            v-bind="loginPasswordAttrs"
+            :aria-invalid="!!loginErrors.loginPassword"
+            aria-describedby="login-password-error"
             type="password"
             autocomplete="current-password"
             placeholder="••••••"
           />
+          <p v-if="loginErrors.loginPassword" id="login-password-error" class="mt-1 text-xs text-destructive">{{ loginErrors.loginPassword }}</p>
         </div>
         <div v-if="loginError" class="rounded-xl bg-destructive/10 px-4 py-2.5 text-sm text-destructive">{{ loginError }}</div>
         <Button
@@ -169,20 +193,28 @@ async function doRegister() {
           <Input
             id="reg-email"
             v-model="registerEmail"
+            v-bind="registerEmailAttrs"
+            :aria-invalid="!!registerErrors.registerEmail"
+            aria-describedby="reg-email-error"
             type="email"
             autocomplete="email"
             placeholder="your@email.com"
           />
+          <p v-if="registerErrors.registerEmail" id="reg-email-error" class="mt-1 text-xs text-destructive">{{ registerErrors.registerEmail }}</p>
         </div>
         <div>
           <label for="reg-password" class="mb-1.5 block text-sm font-medium text-foreground">密码（至少 6 位）</label>
           <Input
             id="reg-password"
             v-model="registerPassword"
+            v-bind="registerPasswordAttrs"
+            :aria-invalid="!!registerErrors.registerPassword"
+            aria-describedby="reg-password-error"
             type="password"
             minlength="6"
             placeholder="••••••"
           />
+          <p v-if="registerErrors.registerPassword" id="reg-password-error" class="mt-1 text-xs text-destructive">{{ registerErrors.registerPassword }}</p>
         </div>
         <div>
           <label for="captcha" class="mb-1.5 block text-sm font-medium text-foreground">验证码</label>
@@ -190,6 +222,9 @@ async function doRegister() {
             <Input
               id="captcha"
               v-model="captchaCode"
+              v-bind="captchaCodeAttrs"
+              :aria-invalid="!!registerErrors.captchaCode"
+              aria-describedby="captcha-error"
               type="text"
               maxlength="4"
               placeholder="4位验证码"
@@ -200,6 +235,7 @@ async function doRegister() {
               <span v-else class="text-xs text-muted-foreground">加载中</span>
             </div>
           </div>
+          <p v-if="registerErrors.captchaCode" id="captcha-error" class="mt-1 text-xs text-destructive">{{ registerErrors.captchaCode }}</p>
         </div>
         <div v-if="registerError" class="rounded-xl bg-destructive/10 px-4 py-2.5 text-sm text-destructive">{{ registerError }}</div>
         <Button

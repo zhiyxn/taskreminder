@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import type { UserItem } from "@/types"
+import { useForm } from "vee-validate"
+import { oneOf, optionalMinLength, required } from "@/lib/formValidation"
 
 const store = useUsersStore()
 const { isMobile } = useIsMobile()
@@ -22,34 +24,71 @@ const { pagedData, totalPages, currentPage, totalItems, goTo } = usePagination(
 // 编辑模态
 const editOpen = ref(false)
 const editUser = ref<UserItem | null>(null)
-const editUsername = ref("")
-const editPassword = ref("")
-const editRole = ref("user")
-const editStatus = ref("active")
+const savingEdit = ref(false)
+
+const {
+  handleSubmit: handleEditSubmit,
+  defineField: defineEditField,
+  resetForm: resetEditForm,
+  errors: editErrors,
+  setFieldError: setEditFieldError,
+} = useForm({
+  validationSchema: {
+    editUsername: required("请输入用户名"),
+    editPassword: optionalMinLength(6, "新密码至少需要 6 位"),
+    editRole: oneOf(["admin", "user"], "请选择有效的角色"),
+    editStatus: oneOf(["active", "disabled"], "请选择有效的状态"),
+  },
+  initialValues: {
+    editUsername: "",
+    editPassword: "",
+    editRole: "user",
+    editStatus: "active",
+  },
+})
+
+const [editUsername, editUsernameAttrs] = defineEditField("editUsername")
+const [editPassword, editPasswordAttrs] = defineEditField("editPassword")
+const [editRole] = defineEditField("editRole")
+const [editStatus] = defineEditField("editStatus")
 
 function openEdit(user: UserItem) {
   editUser.value = user
-  editUsername.value = user.username
-  editPassword.value = ""
-  editRole.value = user.role
-  editStatus.value = user.status
+  resetEditForm({
+    values: {
+      editUsername: user.username,
+      editPassword: "",
+      editRole: user.role,
+      editStatus: user.status,
+    },
+  })
   editOpen.value = true
 }
 
-async function saveEdit() {
+const saveEdit = handleEditSubmit(async (values) => {
   if (!editUser.value) return
-  const result = await store.updateUser(editUser.value.id, {
-    username: editUsername.value,
-    password: editPassword.value || undefined,
-    role: editRole.value,
-    status: editStatus.value,
-  })
-  if (result.success) {
-    editOpen.value = false
-  } else {
-    alert(result.error || "更新失败")
+  savingEdit.value = true
+  try {
+    const result = await store.updateUser(editUser.value.id, {
+      username: values.editUsername.trim(),
+      password: values.editPassword || undefined,
+      role: values.editRole,
+      status: values.editStatus,
+    })
+    if (result.success) {
+      editOpen.value = false
+    } else {
+      alert(result.error || "更新失败")
+    }
+  } catch (err: any) {
+    const message = err.response?.data?.error || "更新失败"
+    if (message.includes("用户名")) setEditFieldError("editUsername", message)
+    else if (message.includes("密码")) setEditFieldError("editPassword", message)
+    else alert(message)
+  } finally {
+    savingEdit.value = false
   }
-}
+})
 
 // 删除确认
 const deleteOpen = ref(false)
@@ -158,12 +197,14 @@ onMounted(() => store.fetchAll())
         <h2 class="mb-4 text-lg font-semibold text-foreground">编辑用户</h2>
         <form @submit.prevent="saveEdit" class="space-y-4">
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-foreground">用户名</label>
-            <Input v-model="editUsername" required />
+            <label for="edit-username" class="mb-1.5 block text-sm font-medium text-foreground">用户名</label>
+            <Input id="edit-username" v-model="editUsername" v-bind="editUsernameAttrs" :aria-invalid="!!editErrors.editUsername" aria-describedby="edit-username-error" />
+            <p v-if="editErrors.editUsername" id="edit-username-error" class="mt-1 text-xs text-destructive">{{ editErrors.editUsername }}</p>
           </div>
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-foreground">密码（留空不改）</label>
-            <Input v-model="editPassword" type="password" />
+            <label for="edit-password" class="mb-1.5 block text-sm font-medium text-foreground">密码（留空不改）</label>
+            <Input id="edit-password" v-model="editPassword" v-bind="editPasswordAttrs" :aria-invalid="!!editErrors.editPassword" aria-describedby="edit-password-error" type="password" autocomplete="new-password" placeholder="至少 6 位" />
+            <p v-if="editErrors.editPassword" id="edit-password-error" class="mt-1 text-xs text-destructive">{{ editErrors.editPassword }}</p>
           </div>
           <div>
             <label class="mb-1.5 block text-sm font-medium text-foreground">角色</label>
@@ -176,6 +217,7 @@ onMounted(() => store.fetchAll())
                 <SelectItem value="admin">管理员</SelectItem>
               </SelectContent>
             </Select>
+            <p v-if="editErrors.editRole" class="mt-1 text-xs text-destructive">{{ editErrors.editRole }}</p>
           </div>
           <div>
             <label class="mb-1.5 block text-sm font-medium text-foreground">状态</label>
@@ -188,10 +230,11 @@ onMounted(() => store.fetchAll())
                 <SelectItem value="disabled">停用</SelectItem>
               </SelectContent>
             </Select>
+            <p v-if="editErrors.editStatus" class="mt-1 text-xs text-destructive">{{ editErrors.editStatus }}</p>
           </div>
           <div class="flex justify-end gap-3 pt-2">
             <Button type="button" variant="outline" @click="editOpen = false">取消</Button>
-            <Button type="submit">保存</Button>
+            <Button type="submit" :disabled="savingEdit">{{ savingEdit ? "保存中..." : "保存" }}</Button>
           </div>
         </form>
       </div>
