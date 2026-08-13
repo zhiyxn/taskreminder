@@ -16,6 +16,7 @@ import {
   required,
 } from "@/lib/formValidation"
 import { useForm } from "vee-validate"
+import { toast } from "vue-sonner"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
@@ -55,7 +56,7 @@ function onUnitChange() {
 }
 
 // vee-validate 表单
-const { handleSubmit, defineField, resetForm, errors, setFieldError } = useForm({
+const { handleSubmit, defineField, resetForm, errors } = useForm({
   validationSchema: {
     title: required("请输入事项标题"),
     startDate: required("请选择开始时间"),
@@ -180,7 +181,7 @@ watch(
       emailPass.value = ""
       feishuAppSecret.value = ""
       barkUrl.value = ""
-      alert("已复制配置，通知凭据出于安全考虑不会复制，请重新填写")
+      toast.info("已复制配置，通知凭据出于安全考虑不会复制，请重新填写")
     } else {
       doResetForm()
     }
@@ -218,19 +219,14 @@ const submit = handleSubmit(async () => {
       ? await store.update(props.editingId, form)
       : await store.create(form)
     if (result.success) {
+      toast.success(
+        result.message || (props.editingId ? "事项更新成功" : "事项创建成功")
+      )
       emit("update:open", false)
       emit("saved")
-    } else {
-      alert(result.error || "操作失败")
     }
-  } catch (err: any) {
-    const message = err.response?.data?.error || "操作失败"
-    if (message.includes("Bark URL")) {
-      setFieldError("barkUrl", message)
-      activeTab.value = "bark"
-    } else {
-      alert(message)
-    }
+  } catch {
+    // 接口错误由 Axios 响应拦截器统一提示。
   } finally {
     submitting.value = false
   }

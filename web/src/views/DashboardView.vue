@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue"
+import { toast } from "vue-sonner"
 import { useRemindersStore } from "@/stores/reminders"
 import { useAuthStore } from "@/stores/auth"
 import { useIsMobile } from "@/composables/useMediaQuery"
@@ -56,21 +57,49 @@ async function openClone(id: number) {
 }
 
 async function handleToggle(id: number, enabled: boolean) {
-  await store.toggle(id, enabled)
+  try {
+    await store.toggle(id, enabled)
+    toast.success(enabled ? "事项已启用" : "事项已停用")
+  } catch {
+    // 接口错误由 Axios 响应拦截器统一提示。
+  }
 }
 
 async function handleFire(id: number) {
-  const results = await store.fire(id)
-  const msgs: string[] = []
-  for (const [ch, r] of Object.entries(results)) {
-    msgs.push(`${ch}: ${r.success ? "发送成功" : (r.error || "失败")}`)
+  try {
+    const results = await store.fire(id)
+    const entries = Object.entries(results)
+    if (entries.length === 0) {
+      toast.info("未选择任何通知渠道")
+      return
+    }
+
+    const description = entries
+      .map(([channel, result]) =>
+        `${channel}: ${result.success ? "发送成功" : (result.error || "失败")}`
+      )
+      .join("；")
+    const successCount = entries.filter(([, result]) => result.success).length
+    if (successCount === entries.length) {
+      toast.success("通知发送成功", { description })
+    } else if (successCount > 0) {
+      toast.warning("部分通知发送失败", { description })
+    } else {
+      toast.error("通知发送失败", { description })
+    }
+  } catch {
+    // 接口错误由 Axios 响应拦截器统一提示。
   }
-  alert(msgs.join("\n") || "未选择任何通知渠道")
 }
 
 async function handleDelete(id: number) {
   if (!confirm("确定删除这条提醒吗？")) return
-  await store.remove(id)
+  try {
+    await store.remove(id)
+    toast.success("事项删除成功")
+  } catch {
+    // 接口错误由 Axios 响应拦截器统一提示。
+  }
 }
 
 async function openLogs(id: number) {

@@ -20,6 +20,8 @@ async function loadLogs() {
   try {
     const res = await api.get("/logs?limit=500")
     if (res.data.success) logs.value = res.data.data || []
+  } catch {
+    // 接口错误由 Axios 响应拦截器统一提示。
   } finally {
     loading.value = false
   }

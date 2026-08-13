@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue"
+import { toast } from "vue-sonner"
 import { useUsersStore } from "@/stores/users"
 import { useIsMobile } from "@/composables/useMediaQuery"
 import { usePagination } from "@/composables/usePagination"
@@ -31,7 +32,6 @@ const {
   defineField: defineEditField,
   resetForm: resetEditForm,
   errors: editErrors,
-  setFieldError: setEditFieldError,
 } = useForm({
   validationSchema: {
     editUsername: required("请输入用户名"),
@@ -76,15 +76,11 @@ const saveEdit = handleEditSubmit(async (values) => {
       status: values.editStatus,
     })
     if (result.success) {
+      toast.success(result.message || "用户信息已更新")
       editOpen.value = false
-    } else {
-      alert(result.error || "更新失败")
     }
-  } catch (err: any) {
-    const message = err.response?.data?.error || "更新失败"
-    if (message.includes("用户名")) setEditFieldError("editUsername", message)
-    else if (message.includes("密码")) setEditFieldError("editPassword", message)
-    else alert(message)
+  } catch {
+    // 接口错误由 Axios 响应拦截器统一提示。
   } finally {
     savingEdit.value = false
   }
@@ -101,14 +97,26 @@ function openDelete(user: UserItem) {
 
 async function confirmDelete() {
   if (!deleteTarget.value) return
-  await store.deleteUser(deleteTarget.value.id)
-  deleteOpen.value = false
+  try {
+    await store.deleteUser(deleteTarget.value.id)
+    toast.success("用户删除成功")
+    deleteOpen.value = false
+  } catch {
+    // 接口错误由 Axios 响应拦截器统一提示。
+  }
 }
 
 async function handleToggleStatus(user: UserItem) {
   const newStatus = user.status === "disabled" ? "active" : "disabled"
   if (!confirm(`确定要${newStatus === 'disabled' ? '停用' : '启用'}用户「${user.username}」吗？`)) return
-  await store.toggleStatus(user.id)
+  try {
+    const result = await store.toggleStatus(user.id)
+    if (result.success) {
+      toast.success(newStatus === "disabled" ? "用户已停用" : "用户已启用")
+    }
+  } catch {
+    // 接口错误由 Axios 响应拦截器统一提示。
+  }
 }
 
 onMounted(() => store.fetchAll())

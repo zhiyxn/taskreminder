@@ -38,6 +38,8 @@ export const useRemindersStore = defineStore("reminders", () => {
     try {
       const res = await api.get<ApiResponse<Reminder[]>>("/reminders")
       if (res.data.success) reminders.value = res.data.data || []
+    } catch {
+      // 接口错误由 Axios 响应拦截器统一提示。
     } finally {
       loading.value = false
     }

@@ -19,6 +19,8 @@ export const useUsersStore = defineStore("users", () => {
     try {
       const res = await api.get<ApiResponse<UserItem[]>>("/users")
       if (res.data.success) users.value = res.data.data || []
+    } catch {
+      // 接口错误由 Axios 响应拦截器统一提示。
     } finally {
       loading.value = false
     }

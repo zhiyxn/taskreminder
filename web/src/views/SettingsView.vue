@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue"
+import { toast } from "vue-sonner"
 import { useAuthStore } from "@/stores/auth"
 import api from "@/lib/api"
 import { Input } from "@/components/ui/input"
@@ -49,15 +50,11 @@ const saveAccount = handleAccountSubmit(async (values) => {
       new_password: values.newPassword || undefined,
     })
     if (res.data.success) {
-      alert("设置已更新，请重新登录")
+      toast.success(res.data.message || "设置已更新，请重新登录")
       auth.logout()
-    } else {
-      alert(res.data.error || "更新失败")
     }
-  } catch (err: any) {
-    const message = err.response?.data?.error || "更新失败"
-    if (err.response?.status === 403) setAccountFieldError("currentPassword", message)
-    else alert(message)
+  } catch {
+    // 接口错误由 Axios 响应拦截器统一提示。
   }
   finally { savingAccount.value = false }
 })
@@ -89,7 +86,6 @@ const {
   defineField: defineTimezoneField,
   resetForm: resetTimezoneForm,
   errors: timezoneErrors,
-  setFieldError: setTimezoneFieldError,
 } = useForm({
   validationSchema: {
     selectedTimezone: oneOf(timezones.map((timezone) => timezone.value), "请选择有效的时区"),
@@ -105,12 +101,10 @@ const saveTimezone = handleTimezoneSubmit(async (values) => {
     const res = await api.put("/settings", { timezone: values.selectedTimezone })
     if (res.data.success) {
       auth.timezone = values.selectedTimezone
-      alert("时区已更新")
-    } else {
-      alert(res.data.error || "保存失败")
+      toast.success(res.data.message || "时区已更新")
     }
-  } catch (err: any) {
-    setTimezoneFieldError("selectedTimezone", err.response?.data?.error || "保存失败")
+  } catch {
+    // 接口错误由 Axios 响应拦截器统一提示。
   }
   finally { savingTimezone.value = false }
 })
