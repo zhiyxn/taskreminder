@@ -8,9 +8,28 @@ import StatsCards from "@/components/reminders/StatsCards.vue"
 import ReminderTable from "@/components/reminders/ReminderTable.vue"
 import ReminderCards from "@/components/reminders/ReminderCards.vue"
 import ReminderFormDialog from "@/components/reminders/ReminderFormDialog.vue"
-import { Plus, ScrollText, X, Pin, FileText } from "@lucide/vue"
+import { Plus, ScrollText, Pin, FileText } from "@lucide/vue"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import type { Reminder } from "@/types"
 
@@ -21,6 +40,8 @@ const { isMobile } = useIsMobile()
 const formOpen = ref(false)
 const editingId = ref<number | null>(null)
 const editingReminder = ref<Reminder | null>(null)
+const deleteOpen = ref(false)
+const deleteTarget = ref<Reminder | null>(null)
 
 // 日志模态框
 const logsOpen = ref(false)
@@ -92,11 +113,18 @@ async function handleFire(id: number) {
   }
 }
 
-async function handleDelete(id: number) {
-  if (!confirm("确定删除这条提醒吗？")) return
+function handleDelete(id: number) {
+  deleteTarget.value = store.reminders.find((reminder) => reminder.id === id) || null
+  deleteOpen.value = true
+}
+
+async function confirmDelete() {
+  if (!deleteTarget.value) return
   try {
-    await store.remove(id)
+    await store.remove(deleteTarget.value.id)
     toast.success("事项删除成功")
+    deleteOpen.value = false
+    deleteTarget.value = null
   } catch {
     // 接口错误由 Axios 响应拦截器统一提示。
   }
@@ -172,23 +200,20 @@ onMounted(loadData)
       :open="formOpen"
       :editing-id="editingId"
       :reminder="editingReminder"
-      @update:open="formOpen = false"
+      @update:open="formOpen = $event"
       @saved="handleSaved"
     />
 
-    <!-- 日志模态 -->
-    <div v-if="logsOpen" class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10">
-      <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" @click="logsOpen = false" />
-      <div class="relative z-10 w-full max-w-2xl rounded-lg border border-border bg-background/80 backdrop-blur-xl backdrop-saturate-150 p-6 shadow-2xl dark:bg-card/80">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="flex items-center gap-2 text-lg font-semibold text-foreground">
+    <!-- 日志弹框 -->
+    <Dialog v-model:open="logsOpen">
+      <DialogContent class="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle class="flex items-center gap-2">
             <ScrollText class="size-5" />
             通知历史
-          </h2>
-          <button class="text-muted-foreground hover:text-foreground" @click="logsOpen = false">
-            <X class="size-5" />
-          </button>
-        </div>
+          </DialogTitle>
+          <DialogDescription>查看该事项的通知发送记录</DialogDescription>
+        </DialogHeader>
         <div v-if="logLoading" class="py-10 text-center text-muted-foreground">加载中...</div>
         <div v-else-if="logItems.length === 0" class="py-10 text-center text-muted-foreground">暂无通知记录</div>
         <div v-else class="max-h-96 space-y-3 overflow-y-auto">
@@ -215,10 +240,33 @@ onMounted(loadData)
             <div v-if="l.error_message" class="mt-0.5 text-xs text-red-600 dark:text-red-400">{{ l.error_message }}</div>
           </div>
         </div>
-        <div class="mt-4 text-right">
-          <button class="rounded-xl border border-border bg-background/50 px-4 py-2 text-sm hover:bg-muted dark:bg-background/30" @click="logsOpen = false">关闭</button>
-        </div>
-      </div>
-    </div>
+        <DialogFooter>
+          <DialogClose as-child>
+            <Button type="button" variant="outline">关闭</Button>
+          </DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <!-- 删除确认 -->
+    <AlertDialog v-model:open="deleteOpen">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>确认删除事项</AlertDialogTitle>
+          <AlertDialogDescription>
+            确定要删除事项「{{ deleteTarget?.title }}」吗？相关通知日志也会被删除，此操作不可撤销。
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>取消</AlertDialogCancel>
+          <AlertDialogAction
+            class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            @click="confirmDelete"
+          >
+            确认删除
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </div>
 </template>

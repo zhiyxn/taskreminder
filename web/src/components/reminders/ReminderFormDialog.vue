@@ -20,6 +20,15 @@ import { toast } from "vue-sonner"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
+import DateTimePicker from "@/components/shared/DateTimePicker.vue"
+import {
+  Dialog,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogScrollContent,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 
 const props = defineProps<{
@@ -96,7 +105,7 @@ const { handleSubmit, defineField, resetForm, errors } = useForm({
 
 const [title, titleAttrs] = defineField("title")
 const [description] = defineField("description")
-const [startDate, startDateAttrs] = defineField("startDate")
+const [startDate] = defineField("startDate")
 const [intervalDays, intervalDaysAttrs] = defineField("intervalDays")
 const [intervalUnit] = defineField("intervalUnit")
 
@@ -239,17 +248,14 @@ const submit = handleSubmit(async () => {
 </script>
 
 <template>
-  <div v-if="open" class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10">
-    <!-- 遮罩 -->
-    <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" @click="$emit('update:open', false)" />
-    <!-- 面板 -->
-    <div class="relative z-10 w-full max-w-lg rounded-lg border border-border bg-background/80 backdrop-blur-xl backdrop-saturate-150 p-6 shadow-2xl dark:bg-card/80">
-      <div class="mb-5">
-        <h2 class="text-lg font-semibold text-foreground">
+  <Dialog :open="open" @update:open="emit('update:open', $event)">
+    <DialogScrollContent class="max-w-lg">
+      <DialogHeader>
+        <DialogTitle>
           {{ editingId ? (reminder && title === reminder.title + '（副本）' ? '克隆事项提醒' : '编辑事项提醒') : '新建事项提醒' }}
-        </h2>
-        <p class="mt-1 text-sm text-muted-foreground">设置提醒的时间、间隔和通知渠道</p>
-      </div>
+        </DialogTitle>
+        <DialogDescription>设置提醒的时间、间隔和通知渠道</DialogDescription>
+      </DialogHeader>
 
       <form @submit.prevent="submit" novalidate class="space-y-4">
         <div>
@@ -271,13 +277,12 @@ const submit = handleSubmit(async () => {
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label for="start-date" class="mb-1.5 block text-sm font-medium text-foreground">开始时间 *</label>
-            <Input
+            <DateTimePicker
               id="start-date"
               v-model="startDate"
-              v-bind="startDateAttrs"
               :aria-invalid="!!errors.startDate"
               aria-describedby="start-date-error"
-              type="datetime-local"
+              placeholder="选择开始日期和时间"
             />
             <p v-if="errors.startDate" id="start-date-error" class="mt-1 text-xs text-destructive">{{ errors.startDate }}</p>
           </div>
@@ -418,13 +423,13 @@ const submit = handleSubmit(async () => {
           </div>
         </div>
 
-        <div class="flex justify-end gap-3 pt-2">
-          <Button type="button" variant="outline" @click="$emit('update:open', false)">取消</Button>
+        <DialogFooter class="pt-2">
+          <Button type="button" variant="outline" @click="emit('update:open', false)">取消</Button>
           <Button type="submit" :disabled="submitting">
             {{ submitting ? "保存中..." : editingId ? "保存修改" : "创建提醒" }}
           </Button>
-        </div>
+        </DialogFooter>
       </form>
-    </div>
-  </div>
+    </DialogScrollContent>
+  </Dialog>
 </template>

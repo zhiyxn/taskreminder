@@ -10,6 +10,7 @@
     "test": "node --experimental-strip-types --test tests/form-validation.test.ts"
   },
   "dependencies": {
+    "@internationalized/date": "^3.12.3",
     "@lucide/vue": "^1.29.0",
     "@tailwindcss/vite": "^4.3.3",
     "@vee-validate/rules": "^4.15.1",
