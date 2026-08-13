@@ -6,7 +6,7 @@ import api from "@/lib/api"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
-import { Clock3, ExternalLink, Info, ShieldCheck } from "lucide-vue-next"
+import { Clock3, ExternalLink, Info, ShieldCheck } from "@lucide/vue"
 import { useForm } from "vee-validate"
 import { oneOf, optionalMinLength, required } from "@/lib/formValidation"
 

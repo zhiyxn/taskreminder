@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useRoute } from "vue-router"
 import { useColorMode } from "@/composables/useColorMode"
-import { Menu, Sun, Moon, Monitor } from "lucide-vue-next"
+import { Menu, Sun, Moon, Monitor } from "@lucide/vue"
 import { computed } from "vue"
 
 const route = useRoute()

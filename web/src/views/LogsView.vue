@@ -4,7 +4,7 @@ import api from "@/lib/api"
 import { usePagination } from "@/composables/usePagination"
 import PaginationBar from "@/components/shared/PaginationBar.vue"
 import EmptyState from "@/components/shared/EmptyState.vue"
-import { ScrollText, Pin, FileText, Inbox, Check, X } from "lucide-vue-next"
+import { ScrollText, Pin, FileText, Inbox, Check, X } from "@lucide/vue"
 import type { LogItem } from "@/types"
 
 const logs = ref<LogItem[]>([])

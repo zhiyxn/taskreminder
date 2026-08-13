@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useRemindersStore } from "@/stores/reminders"
-import { ListTodo, CheckCircle2, PauseCircle } from "lucide-vue-next"
+import { ListTodo, CheckCircle2, PauseCircle } from "@lucide/vue"
 
 const store = useRemindersStore()
 </script>
