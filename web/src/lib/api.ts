@@ -1,5 +1,11 @@
 import axios from "axios"
 
+let unauthorizedHandler: (() => void) | null = null
+
+export function setUnauthorizedHandler(handler: () => void) {
+  unauthorizedHandler = handler
+}
+
 const api = axios.create({
   baseURL: "/api",
   timeout: 15000,
@@ -19,7 +25,11 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem("auth_token")
-      window.location.hash = "#/login"
+      unauthorizedHandler?.()
+      const onLoginRoute = window.location.hash === "#/login" || window.location.hash.startsWith("#/login?")
+      if (!onLoginRoute) {
+        window.location.hash = "#/login"
+      }
     }
     return Promise.reject(error)
   }

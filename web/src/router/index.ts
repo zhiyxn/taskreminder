@@ -30,7 +30,7 @@ const routes: RouteRecordRaw[] = [
         path: "users",
         name: "users",
         component: () => import("@/views/UsersView.vue"),
-        meta: { title: "用户管理" },
+        meta: { title: "用户管理", requiresAdmin: true },
       },
       {
         path: "settings",
@@ -40,6 +40,7 @@ const routes: RouteRecordRaw[] = [
       },
     ],
   },
+  { path: "/:pathMatch(.*)*", redirect: "/reminders" },
 ]
 
 const router = createRouter({
@@ -47,13 +48,26 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach((to, _from) => {
-  if (to.path === "/login") return true
-
+router.beforeEach(async (to, _from) => {
   const auth = useAuthStore()
-  if (!auth.isAuthenticated) return "/login"
+  await auth.initialize()
 
-  if (to.path === "/users" && !auth.isAdmin) return "/reminders"
+  if (to.name === "login") {
+    if (!auth.isAuthenticated) return true
+
+    const redirect = typeof to.query.redirect === "string" ? to.query.redirect : ""
+    return redirect.startsWith("/") && !redirect.startsWith("//") && redirect !== "/login"
+      ? redirect
+      : "/reminders"
+  }
+
+  if (!auth.isAuthenticated) {
+    return { name: "login", query: { redirect: to.fullPath } }
+  }
+
+  if (to.matched.some((record) => record.meta.requiresAdmin) && !auth.isAdmin) {
+    return "/reminders"
+  }
 
   return true
 })

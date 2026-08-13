@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue"
+import { ref } from "vue"
 import { useAuthStore } from "@/stores/auth"
-import { useRouter } from "vue-router"
+import { useRoute, useRouter } from "vue-router"
 import api from "@/lib/api"
 import { Bell } from "lucide-vue-next"
 import { Input } from "@/components/ui/input"
@@ -9,6 +9,14 @@ import { Button } from "@/components/ui/button"
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
+
+function postLoginPath() {
+  const redirect = typeof route.query.redirect === "string" ? route.query.redirect : ""
+  return redirect.startsWith("/") && !redirect.startsWith("//") && redirect !== "/login"
+    ? redirect
+    : "/reminders"
+}
 
 // 登录
 const loginUsername = ref("")
@@ -26,7 +34,7 @@ async function doLogin() {
   const result = await auth.login(loginUsername.value, loginPassword.value)
   loginLoading.value = false
   if (result.success) {
-    router.push("/reminders")
+    router.replace(postLoginPath())
   } else {
     loginError.value = result.error || "登录失败"
   }
@@ -84,9 +92,6 @@ async function doRegister() {
   }
 }
 
-onMounted(() => {
-  if (auth.isAuthenticated) router.push("/reminders")
-})
 </script>
 
 <template>

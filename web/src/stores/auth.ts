@@ -1,14 +1,15 @@
 import { defineStore } from "pinia"
 import { ref, computed } from "vue"
-import api from "@/lib/api"
+import api, { setUnauthorizedHandler } from "@/lib/api"
 import type { ApiResponse, AuthUser } from "@/types"
-import router from "@/router"
 
 export const useAuthStore = defineStore("auth", () => {
   const token = ref<string | null>(localStorage.getItem("auth_token"))
   const username = ref("")
   const role = ref<"admin" | "user">("user")
   const timezone = ref("Asia/Shanghai")
+  const initialized = ref(false)
+  let initializationPromise: Promise<void> | null = null
 
   const isAuthenticated = computed(() => !!token.value)
   const isAdmin = computed(() => role.value === "admin")
@@ -21,6 +22,16 @@ export const useAuthStore = defineStore("auth", () => {
     }
   }
 
+  function clearSession() {
+    token.value = null
+    username.value = ""
+    role.value = "user"
+    timezone.value = "Asia/Shanghai"
+    localStorage.removeItem("auth_token")
+  }
+
+  setUnauthorizedHandler(clearSession)
+
   async function login(usernameInput: string, password: string): Promise<ApiResponse> {
     try {
       const res = await api.post<ApiResponse<{ token: string; username: string; role: string }>>("/auth/login", {
@@ -32,7 +43,11 @@ export const useAuthStore = defineStore("auth", () => {
         username.value = res.data.data.username
         role.value = res.data.data.role as "admin" | "user"
         persistToken()
-        await fetchMe()
+        const me = await fetchMe()
+        if (!me.success) {
+          clearSession()
+          return { success: false, error: me.error || "登录状态验证失败" }
+        }
       }
       return res.data
     } catch (err: any) {
@@ -67,14 +82,44 @@ export const useAuthStore = defineStore("auth", () => {
     }
   }
 
-  async function logout() {
-    api.post("/auth/logout").catch(() => {})
-    token.value = null
-    username.value = ""
-    role.value = "user"
-    localStorage.removeItem("auth_token")
-    router.push("/login")
+  async function initialize(): Promise<void> {
+    if (initialized.value) return
+
+    if (!initializationPromise) {
+      initializationPromise = (async () => {
+        if (!token.value) return
+        const result = await fetchMe()
+        if (!result.success) clearSession()
+      })().finally(() => {
+        initialized.value = true
+      })
+    }
+
+    await initializationPromise
   }
 
-  return { token, username, role, timezone, isAuthenticated, isAdmin, login, register, fetchMe, logout, persistToken }
+  function logout() {
+    const currentToken = token.value
+    api.post("/auth/logout", undefined, {
+      headers: currentToken ? { Authorization: `Bearer ${currentToken}` } : undefined,
+    }).catch(() => {})
+    clearSession()
+  }
+
+  return {
+    token,
+    username,
+    role,
+    timezone,
+    initialized,
+    isAuthenticated,
+    isAdmin,
+    login,
+    register,
+    fetchMe,
+    initialize,
+    logout,
+    persistToken,
+    clearSession,
+  }
 })

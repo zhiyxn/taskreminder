@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { useAuthStore } from "@/stores/auth"
-import { useRoute } from "vue-router"
+import { useRoute, useRouter } from "vue-router"
 import { computed } from "vue"
 import { Bell, LayoutDashboard, ScrollText, Users, Settings, LogOut } from "lucide-vue-next"
 
 const auth = useAuthStore()
 const route = useRoute()
+const router = useRouter()
 
 defineEmits<{ navigate: [] }>()
 
@@ -23,6 +24,11 @@ const navItems = computed(() => {
 
 function isActive(path: string) {
   return route.path === path || route.path.startsWith(path + "/")
+}
+
+function logout() {
+  auth.logout()
+  router.replace("/login")
 }
 </script>
 
@@ -65,7 +71,7 @@ function isActive(path: string) {
       </div>
       <button
         class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
-        @click="auth.logout()"
+        @click="logout"
       >
         <LogOut class="size-4" />
         退出登录

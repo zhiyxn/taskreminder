@@ -44,7 +44,7 @@ function onUnitChange() {
 }
 
 // vee-validate 表单
-const { handleSubmit, defineField, resetForm, meta } = useForm({
+const { handleSubmit, defineField, resetForm } = useForm({
   validationSchema: {
     title: (v: string) => {
       if (!v || !v.trim()) return "请输入事项标题"
@@ -79,7 +79,7 @@ const activeTab = ref("telegram")
 const telegramBotToken = ref("")
 const telegramChatId = ref("")
 const emailHost = ref("")
-const emailPort = ref<number | null>(null)
+const emailPort = ref<number | undefined>(undefined)
 const emailUser = ref("")
 const emailPass = ref("")
 const emailTo = ref("")
@@ -103,7 +103,7 @@ function fillFromReminder(r: Reminder) {
   telegramBotToken.value = r.telegram_bot_token || ""
   telegramChatId.value = r.telegram_chat_id || ""
   emailHost.value = r.email_host || ""
-  emailPort.value = r.email_port || null
+  emailPort.value = r.email_port ?? undefined
   emailUser.value = r.email_user || ""
   emailPass.value = r.email_pass || ""
   emailTo.value = r.email_to || ""
@@ -132,7 +132,7 @@ function doResetForm() {
   telegramBotToken.value = ""
   telegramChatId.value = ""
   emailHost.value = ""
-  emailPort.value = null
+  emailPort.value = undefined
   emailUser.value = ""
   emailPass.value = ""
   emailTo.value = ""
